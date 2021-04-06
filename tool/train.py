@@ -24,6 +24,8 @@ from model.san import san
 from util import config
 from util.util import AverageMeter, intersectionAndUnionGPU, find_free_port, mixup_data, mixup_loss, smooth_loss, cal_accuracy
 
+from glasses.models import ResNet, ResNetBottleneckBlock
+
 cv2.ocl.setUseOpenCL(False)
 cv2.setNumThreads(0)
 
@@ -97,7 +99,14 @@ def main_worker(gpu, ngpus_per_node, argss):
             args.rank = args.rank * ngpus_per_node + gpu
         dist.init_process_group(backend=args.dist_backend, init_method=args.dist_url, world_size=args.world_size, rank=args.rank)
 
-    model = san(args.sa_type, args.layers, args.kernels, args.classes)
+    n_channels = 3
+    if args.channels: n_channels = args.channels
+
+    if (args.arch == 'resnet'):
+        # resnet26
+        model = ResNet(in_channels=n_channels, n_classes=args.classes, block=ResNetBottleneckBlock, widths=args.widths, depths=args.depths)
+    else: # SAN
+        model = san(args.sa_type, args.layers, args.kernels, args.classes, in_planes=n_channels)
     criterion = nn.CrossEntropyLoss(ignore_index=args.ignore_label)
     optimizer = torch.optim.SGD(model.parameters(), lr=args.base_lr, momentum=args.momentum, weight_decay=args.weight_decay)
     if args.scheduler == 'step':
@@ -186,8 +195,8 @@ def main_worker(gpu, ngpus_per_node, argss):
         train_set = torch.utils.data.Subset(train_transform_set, train_indices)
         val_set = torch.utils.data.Subset(val_transform_set, val_indices)
     else: # case args.split == 2
-    train_set = torchvision.datasets.ImageFolder(os.path.join(args.data_root, 'train'), train_transform)
-    val_set = torchvision.datasets.ImageFolder(os.path.join(args.data_root, 'val'), val_transform)
+        train_set = torchvision.datasets.ImageFolder(os.path.join(args.data_root, 'train'), train_transform)
+        val_set = torchvision.datasets.ImageFolder(os.path.join(args.data_root, 'val'), val_transform)
 
     if args.distributed:
         train_sampler = torch.utils.data.distributed.DistributedSampler(train_set)

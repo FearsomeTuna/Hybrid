@@ -80,10 +80,10 @@ class Bottleneck(nn.Module):
 
 
 class SAN(nn.Module):
-    def __init__(self, sa_type, block, layers, kernels, num_classes):
+    def __init__(self, sa_type, block, layers, kernels, num_classes, in_planes=3):
         super(SAN, self).__init__()
         c = 64
-        self.conv_in, self.bn_in = conv1x1(3, c), nn.BatchNorm2d(c)
+        self.conv_in, self.bn_in = conv1x1(in_planes, c), nn.BatchNorm2d(c)
         self.conv0, self.bn0 = conv1x1(c, c), nn.BatchNorm2d(c)
         self.layer0 = self._make_layer(sa_type, block, c, layers[0], kernels[0])
 
