@@ -151,9 +151,42 @@ def main_worker(gpu, ngpus_per_node, argss):
                 logger.info("=> no checkpoint found at '{}'".format(args.resume))
 
     mean, std = [0.485, 0.456, 0.406], [0.229, 0.224, 0.225]
+    if args.mean: mean = args.mean
+    if args.std: std = args.std
+
     train_transform = transforms.Compose([transforms.RandomResizedCrop(224), transforms.RandomHorizontalFlip(), transforms.ToTensor(), transforms.Normalize(mean, std)])
-    train_set = torchvision.datasets.ImageFolder(os.path.join(args.data_root, 'train'), train_transform)
     val_transform = transforms.Compose([transforms.Resize(256), transforms.CenterCrop(224), transforms.ToTensor(), transforms.Normalize(mean, std)])
+
+    if args.split == 0 or args.split == 1:
+        random_seed= 42
+        shuffle_dataset = True
+
+        folder_name = 'data' if args.split == 0 else 'train'
+        
+        train_transform_set = torchvision.datasets.ImageFolder(os.path.join(args.data_root, folder_name), train_transform)
+        val_transform_set = torchvision.datasets.ImageFolder(os.path.join(args.data_root, folder_name), val_transform)
+
+        split_ratio = args.split_ratio
+
+        dataset_size = len(train_transform_set) # both are same size
+        indices = list(range(dataset_size))
+        
+        if shuffle_dataset :
+            np.random.seed(random_seed)
+            np.random.shuffle(indices)
+
+        if args.split == 0:
+            val_split = int(np.floor(split_ratio[0] * dataset_size)) # from index 0 to val_split - 1 is val set
+            test_split = int(np.floor(split_ratio[1] * dataset_size)) + val_split # from index val_split to test_split is test set.
+            train_indices, val_indices = indices[test_split:], indices[:val_split]
+        else:
+            split = int(np.floor(split_ratio * dataset_size))
+            train_indices, val_indices = indices[split:], indices[:split]
+
+        train_set = torch.utils.data.Subset(train_transform_set, train_indices)
+        val_set = torch.utils.data.Subset(val_transform_set, val_indices)
+    else: # case args.split == 2
+    train_set = torchvision.datasets.ImageFolder(os.path.join(args.data_root, 'train'), train_transform)
     val_set = torchvision.datasets.ImageFolder(os.path.join(args.data_root, 'val'), val_transform)
 
     if args.distributed:
