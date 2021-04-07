@@ -67,10 +67,10 @@ back/
 *.log
 *.pth
 events*
-config/
+#config/
 dataset/
 *.ninja_deps
 *.ninja_log
 *.ninja
-*.yaml
+#*.yaml
 slurm*

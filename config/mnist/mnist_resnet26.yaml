@@ -18,9 +18,9 @@ TRAIN:
   batch_size: 32  # batch size for training
   batch_size_val: 16  # batch size for validation during training, memory and speed tradeoff
   base_lr: 0.1
-  epochs: 100
+  epochs: 10
   start_epoch: 0
-  step_epochs: [30, 60, 90]
+  step_epochs: [3, 6, 9]
   label_smoothing: 0.1
   mixup_alpha:
   scheduler: cosine
@@ -29,7 +29,7 @@ TRAIN:
   manual_seed:
   print_freq: 10
   save_freq: 1
-  save_path: exp/mnist/baseline/model
+  save_path: exp/mnist/resnet26/model
   weight:  # path to initial weight (default: none)
   resume:  # path to latest checkpoint (default: none)
   evaluate: True  # evaluate on validation set, extra gpu memory needed and small batch_size_val is recommend
@@ -44,4 +44,4 @@ TEST:
   test_gpu: [0]
   test_workers: 10
   batch_size_test: 100
-  model_path: exp/mnist/baseline/model/model_best.pth
+  model_path: exp/mnist/resnet26/model/model_best.pth
