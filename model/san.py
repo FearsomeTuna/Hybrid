@@ -128,8 +128,8 @@ class SAN(nn.Module):
         return x
 
 
-def san(sa_type, layers, kernels, num_classes):
-    model = SAN(sa_type, Bottleneck, layers, kernels, num_classes)
+def san(sa_type, layers, kernels, num_classes, in_planes=3):
+    model = SAN(sa_type, Bottleneck, layers, kernels, num_classes, in_planes)
     return model
 
 

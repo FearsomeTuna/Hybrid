@@ -24,7 +24,8 @@ from model.san import san
 from util import config
 from util.util import AverageMeter, intersectionAndUnionGPU, find_free_port, mixup_data, mixup_loss, smooth_loss, cal_accuracy
 
-from glasses.models import ResNet, ResNetBottleneckBlock
+from glasses.models import ResNet
+from glasses.models.classification.resnet import ResNetBottleneckBlock
 
 cv2.ocl.setUseOpenCL(False)
 cv2.setNumThreads(0)
@@ -165,6 +166,10 @@ def main_worker(gpu, ngpus_per_node, argss):
 
     train_transform = transforms.Compose([transforms.RandomResizedCrop(224), transforms.RandomHorizontalFlip(), transforms.ToTensor(), transforms.Normalize(mean, std)])
     val_transform = transforms.Compose([transforms.Resize(256), transforms.CenterCrop(224), transforms.ToTensor(), transforms.Normalize(mean, std)])
+
+    if args.channels == 1:
+        train_transform = transforms.Compose([transforms.Grayscale(num_output_channels=1), train_transform])
+        val_transform = transforms.Compose([transforms.Grayscale(num_output_channels=1), val_transform])
 
     if args.split == 0 or args.split == 1:
         random_seed= 42
