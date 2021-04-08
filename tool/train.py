@@ -108,6 +108,10 @@ def main_worker(gpu, ngpus_per_node, argss):
         model = ResNet(in_channels=n_channels, n_classes=args.classes, block=ResNetBottleneckBlock, widths=args.widths, depths=args.depths)
     else: # SAN
         model = san(args.sa_type, args.layers, args.kernels, args.classes, in_planes=n_channels)
+    
+    total_params = sum(p.numel() for p in model.parameters())
+    total_params_trainable = sum(p.numel() for p in model.parameters() if p.requires_grad)
+
     criterion = nn.CrossEntropyLoss(ignore_index=args.ignore_label)
     optimizer = torch.optim.SGD(model.parameters(), lr=args.base_lr, momentum=args.momentum, weight_decay=args.weight_decay)
     if args.scheduler == 'step':
@@ -122,6 +126,8 @@ def main_worker(gpu, ngpus_per_node, argss):
         logger.info(args)
         logger.info("=> creating model ...")
         logger.info("Classes: {}".format(args.classes))
+        logger.info("Model total num of params: {}".format(total_params))
+        logger.info("Model total num of trainable params: {}".format(total_params_trainable))
         logger.info(model)
     if args.distributed:
         torch.cuda.set_device(gpu)
