@@ -1,3 +1,10 @@
+# Forked from original paper code.
+This repo takes the original paper code and modifies it to allow train of resnet26 models.
+
+Example use can be found on https://colab.research.google.com/drive/1iq6aeMK6lryka6WYimRszTy3uT44h8Ts#scrollTo=Dh5iyYNLh1ys.
+
+Original readme follows:
+
 # Exploring Self-attention for Image Recognition
 by Hengshuang Zhao, Jiaya Jia, and Vladlen Koltun, details are in [paper](https://hszhao.github.io/papers/cvpr20_san.pdf).
 
