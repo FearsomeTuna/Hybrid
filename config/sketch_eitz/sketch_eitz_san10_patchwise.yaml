@@ -10,7 +10,7 @@ DATA:
 
 TRAIN:
   arch: san
-  sa_type: 0
+  sa_type: 1
   layers: [2, 1, 2, 4, 1]
   kernels: [3, 7, 7, 7, 7]
   ignore_label: 2000
@@ -30,7 +30,7 @@ TRAIN:
   manual_seed:
   print_freq: 10
   save_freq: 1
-  save_path: exp/sketch_eitz/san10_pairwise/model
+  save_path: exp/sketch_eitz/san10_patchwise/model
   weight:  # path to initial weight (default: none)
   resume:  # path to latest checkpoint (default: none)
   evaluate: True  # evaluate on validation set, extra gpu memory needed and small batch_size_val is recommend
@@ -45,4 +45,4 @@ TEST:
   test_gpu: [0]
   test_workers: 10
   batch_size_test: 100
-  model_path: exp/sketch_eitz/san10_pairwise/model/model_best.pth
+  model_path: exp/sketch_eitz/san10_patchwise/model/model_best.pth
