@@ -7,6 +7,7 @@ import torch
 import torch.nn as nn
 
 import lib.sa as sa
+from glasses.nn.blocks import Conv2dPad
 
 
 def get_model_complexity_info(model, input_res, print_per_layer_stat=True, as_strings=True, input_constructor=None, ost=sys.stdout):
@@ -383,6 +384,8 @@ MODULES_MAPPING = {
     sa.modules.Subtraction: subtraction_flops_counter_hook,
     sa.modules.Subtraction2: subtraction2_flops_counter_hook,
     sa.modules.Aggregation: aggregation_flops_counter_hook,
+    # glasses blocks
+    Conv2dPad: conv_flops_counter_hook,
 }
 
 
