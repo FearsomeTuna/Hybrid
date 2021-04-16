@@ -30,7 +30,7 @@ TRAIN:
   manual_seed:
   print_freq: 10
   save_freq: 1
-  save_path: exp/mnist/san10_pairwise/model
+  save_path: exp/mnist/san10_patchwise/model
   weight:  # path to initial weight (default: none)
   resume:  # path to latest checkpoint (default: none)
   evaluate: True  # evaluate on validation set, extra gpu memory needed and small batch_size_val is recommend
@@ -45,4 +45,4 @@ TEST:
   test_gpu: [0]
   test_workers: 10
   batch_size_test: 100
-  model_path: exp/mnist/san10_pairwise/model/model_best.pth
+  model_path: exp/mnist/san10_patchwise/model/model_best.pth
