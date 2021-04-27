@@ -1,9 +1,105 @@
 # Forked from original paper code.
 This repo takes the original paper code and modifies it to allow train of resnet26 models.
 
-Example use can be found on https://colab.research.google.com/drive/1iq6aeMK6lryka6WYimRszTy3uT44h8Ts#scrollTo=Dh5iyYNLh1ys.
+## Example installation
 
-Original readme follows:
+```
+git clone https://github.com/FearsomeTuna/SAN.git
+cd SAN
+conda update -n base -c defaults conda
+conda create -n torchEnv
+conda activate torchEnv
+conda install pytorch=1.8.1 torchvision=0.9.1 cupy=9.0.0 cudatoolkit=10.1 pyyaml tensorboardx -c pytorch -c conda-forge
+pip install git+https://github.com/FrancescoSaverioZuppichini/glasses@1dbe60f99c68f8b65efb7d70fe829623fdb4a689
+pip install opencv-python requests==2.23.0 matplotlib einops rich torchinfo
+```
+## Download and prepare datasets
+
+Datasets (or a symbolic link to them) must be located in a 'dataset' folder on SAN root, organized in one of 3 ways:
+
+- One 'data' folder: data is sampled into train and val during runtime.
+- 'train' and 'test' folders: data for train and validation is sampled from 'train' folder at runtime.
+- 'train', 'val' and 'test' folders.
+Keep in mind 'test' folder is not needed for training, so you can make do without it as long as you do not run `test.sh` file.
+
+Independently of which of these 3 configurations are used, images within must be organized into subfolders for each class.
+
+Dataset organization must be declared in config file for correct dataset import (see next sample config file in config directory and <a href='#configSection'>config</a> section for more info).
+
+<div id='configSection'>
+
+## Set configurations on a config file
+
+Along with dataset organization, a variety of experimental parameters can/must be set through config files in the config directory. Along with dataset organization, modifiying configs for batch sizes (train, validation and test) might be of interest to run implemented models on less powerful hardware (train and validation batch sizes of 32 and 16, respectively, where used succesfully on collab environment).
+
+Config files should be placed in the `config` directory using the `{dataset}_{name}.yaml` naming convention.
+
+</div>
+
+## Example dataset preparation
+Sketch_EITZ and mnist download links can be found on [this](https://github.com/jmsaavedrar/convnet2) repo.EITZ has data in a single folder with all data organized into subfolders for each class already. MNIST is spread in two download links and is compressed in a somewhat cumbersome way. This code can be used to unzip and prepare them:
+
+```shell
+SAN_ROOT="/path/to/SAN" # SAN root
+DOWNLOAD_PATH="/path/to/downloaded/files" # download directory
+
+cd $SAN_ROOT
+mkdir dataset
+
+# EITZ
+unzip $DOWNLOAD_PATH/EITZ.zip -d dataset
+mv dataset/Sketch_EITZ/png_w256 dataset/Sketch_EITZ/data
+
+# MNIST
+cd dataset
+mkdir MNIST
+cd MNIST
+mv $DOWNLOAD_PATH/mnist_train.gzip mnist_train.gz
+mv $DOWNLOAD_PATH/mnist_test.gzip mnist_test.gz
+gunzip mnist_train.gz
+gunzip mnist_test.gz
+tar -xvf mnist_train
+tar -xvf mnist_test
+rm mnist_train mnist_test
+mv Test val
+mv Train train
+
+# group mnist images into subfolders for classes 0 to 9
+cd val
+for i in {0..9}; do mkdir $i; mv *_$i.png $i; done
+
+cd ../train
+for i in {0..9}; do mkdir $i; mv *_$i.png $i; done
+
+cd $SAN_ROOT
+```
+
+## Example use
+
+Set the correct environment name in tool/train.sh
+
+```
+export PYTHONPATH=./
+eval "$(conda shell.bash hook)"
+conda activate torchEnv
+```
+
+```
+cd SAN
+sh tool/train.sh sketch_eitz resnet26
+```
+
+## See results on tensorboard
+
+```
+cd SAN
+tensorboard --logdir exp
+```
+
+## Google Collab Demo
+An example use can be found on https://colab.research.google.com/drive/1iq6aeMK6lryka6WYimRszTy3uT44h8Ts#scrollTo=Dh5iyYNLh1ys. This is based on an older commit, with different training configs to adjust to collab gpu.
+
+# Original readme follows:
 
 # Exploring Self-attention for Image Recognition
 by Hengshuang Zhao, Jiaya Jia, and Vladlen Koltun, details are in [paper](https://hszhao.github.io/papers/cvpr20_san.pdf).
