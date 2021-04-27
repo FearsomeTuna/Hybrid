@@ -1,9 +1,14 @@
 # Forked from original paper code.
 This repo takes the original paper code and modifies it to allow train of resnet26 models.
 
+   - Hardware: tested with RTX Titan (24G).
+   - Software: tested with PyTorch 1.8.1, Python3.8, CUDA toolkit 10.1, CuPy=9.0.0, tensorboardX, [glasses](https://github.com/FrancescoSaverioZuppichini/glasses). See <a href='#exampleInstall'>example installation section</a> for more requirements and install instructions.
+
+<div id="exampleInstall">
+
 ## Example installation
 
-```
+```shell
 git clone https://github.com/FearsomeTuna/SAN.git
 cd SAN
 conda update -n base -c defaults conda
@@ -13,9 +18,11 @@ conda install pytorch=1.8.1 torchvision=0.9.1 cupy=9.0.0 cudatoolkit=10.1 pyyaml
 pip install git+https://github.com/FrancescoSaverioZuppichini/glasses@1dbe60f99c68f8b65efb7d70fe829623fdb4a689
 pip install opencv-python requests==2.23.0 matplotlib einops rich torchinfo
 ```
+</div>
+
 ## Download and prepare datasets
 
-Datasets (or a symbolic link to them) must be located in a 'dataset' folder on SAN root, organized in one of 3 ways:
+Dataset location (or a symbolic link to it) can be changed in config files. Example config files suppose a 'dataset' folder in SAN root (see `sample.yaml` config file in `config/sample` directory). Datasets must be organized in one of 3 ways:
 
 - One 'data' folder: data is sampled into train and val during runtime.
 - 'train' and 'test' folders: data for train and validation is sampled from 'train' folder at runtime.
@@ -37,7 +44,7 @@ Config files should be placed in the `config` directory using the `{dataset}_{na
 </div>
 
 ## Example dataset preparation
-Sketch_EITZ and mnist download links can be found on [this](https://github.com/jmsaavedrar/convnet2) repo.EITZ has data in a single folder with all data organized into subfolders for each class already. MNIST is spread in two download links and is compressed in a somewhat cumbersome way. This code can be used to unzip and prepare them:
+Sketch_EITZ and mnist download links can be found on [this](https://github.com/jmsaavedrar/convnet2) repo.EITZ has data in a single folder with all data organized into subfolders for each class already. MNIST is spread in two download links and is compressed in a somewhat cumbersome way. This code can be used to unzip and prepare them, leaving them in `SAN/dataset` folder:
 
 ```shell
 SAN_ROOT="/path/to/SAN" # SAN root
@@ -78,20 +85,21 @@ cd $SAN_ROOT
 
 Set the correct environment name in tool/train.sh
 
-```
+```shell
 export PYTHONPATH=./
 eval "$(conda shell.bash hook)"
-conda activate torchEnv
+conda activate torchEnv # set this to your conda environment name
 ```
+The following example runs training using `sketch_eitz_resnet26.yaml` config file located in `config/sketch_eitz` folder.
 
-```
+```shell
 cd SAN
 sh tool/train.sh sketch_eitz resnet26
 ```
 
 ## See results on tensorboard
 
-```
+```shell
 cd SAN
 tensorboard --logdir exp
 ```
