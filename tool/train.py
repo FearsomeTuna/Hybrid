@@ -105,7 +105,7 @@ def main_worker(gpu, ngpus_per_node, argss):
 
     if (args.arch == 'resnet'):
         # resnet26
-        model = ResNet(in_channels=n_channels, n_classes=args.classes, block=ResNetBottleneckBlock, widths=args.widths, depths=args.depths)
+        model = ResNet(in_channels=n_channels, n_classes=args.classes, block=ResNetBottleneckBlock, widths=args.widths, depths=args.layers)
     else: # SAN
         model = san(args.sa_type, args.layers, args.kernels, args.classes, in_planes=n_channels)
     
@@ -178,7 +178,6 @@ def main_worker(gpu, ngpus_per_node, argss):
         val_transform = transforms.Compose([transforms.Grayscale(num_output_channels=1), val_transform])
 
     if args.split == 0 or args.split == 1:
-        random_seed= 42
         shuffle_dataset = True
 
         folder_name = 'data' if args.split == 0 else 'train'
@@ -192,7 +191,6 @@ def main_worker(gpu, ngpus_per_node, argss):
         indices = list(range(dataset_size))
         
         if shuffle_dataset :
-            np.random.seed(random_seed)
             np.random.shuffle(indices)
 
         if args.split == 0:

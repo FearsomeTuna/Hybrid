@@ -1,0 +1,104 @@
+DATA:
+  # root folder of dataset (within SAN folder)
+  data_root: dataset/ILSVRC2012
+  # seemingly unused
+  data_name: imagenet
+  # number of classes
+  classes: 1000
+  # number of channels for input dataset (3 for RGB and 1 for Grayscale). Defaults to 3.
+  channels: 3
+  # dataset mean for each channel, defaults to imagenet values
+  mean: [0.485, 0.456, 0.406]
+  # dataset std for each channel, defaults to imagenet values
+  std: [0.229, 0.224, 0.225]
+  # 0 if data is not split (single folder called 'data'), 1 if it's split into train and
+  # test folders (train will be split into train and val sets at runtime),
+  # 2 if split into train, val and test folders (can train with just train and val, test is necesary for test.py).
+  split: 2
+  # [val, test] list if dataset not split, just val ratio if dataset es split into train and
+  # test folders (meaning, ratio used to separate train folder data into train and val).
+  # Ignored if already split into train, val and test.
+  split_ratio:
+
+
+TRAIN:
+  # architecture
+  arch: san
+  # san architecture type. 0 is pairwise, 1 is patchwise. Only used if architecture is san.
+  sa_type: 0
+  # number of blocks used in each stage of model. Depends on architecture.
+  # For example, resnet is based on 4 stages, each with a varying number of bottleneck blocks.
+  layers: [2, 1, 2, 4, 1]
+  # size of kernels. ie 3x3, 7x7, etc. Used in SAN (they don't change in resnet).
+  kernels: [3, 7, 7, 7, 7]
+  # resnet channel depth per stage, not used in SAN architecture
+  widths:
+  # class index to be ignored
+  ignore_label: 2000
+  # list of gpus to be used, requires correct Distributed to have effect.
+  train_gpu: [0, 1, 2, 3, 4, 5, 6, 7]
+  # data loader workers
+  workers: 32 
+  # batch size for training
+  batch_size: 256
+  # batch size for validation during training, memory and speed tradeoff
+  batch_size_val: 128
+  # base learning rate (scheduler changes learning rate over time)
+  base_lr: 0.1
+  # number of epochs
+  epochs: 100
+  # starting epoch number. Affects train sampler and logs. Will be set automatically from checkpoint if 'resume' config is set.
+  start_epoch: 0
+  # steps at which learning rate is changed. Used only when 'scheduler' config is set to 'step'.
+  step_epochs: [30, 60, 90]
+  # Defines label smoothing factor. Cross entropy loss tipically considers the ground truth for
+  # each class to be either 0 or 1 (each sample corresponds exactly to one class). For various reasons,
+  # it can be beneficial to consider a 'smooth' version of that ground truth.
+  # If 'label_smoothing' and 'mixup_alpha' configs are undefined, torch.nn.CrossEntropyLoss is used.
+  # If 'label_smoothing' is defined, but not 'mixup_alpha', a smooth loss is used with epsilon equal
+  # to label_smoothing config.
+  # If 'label_smoothing' is undefined, but 'mixup_alpha' IS defined, a mixup loss with is used
+  # with epsilon equal to label_smoothing config.
+  label_smoothing: 0.1
+  # if defined, performs mixup data augmentation (input images become the mix of two images).
+  # The ratio 'lam' that defines how much is taken from each image is defined from a beta
+  # distribution with both shape parameters set to mixup_alpha config. Loss is calculated
+  # as a weighted sum of each independent loss, ie the loss between the mixup image output and the first
+  # image target class, and between the mixup output image and the second image target class,
+  # where the ratio is also 'lam'.
+  # This mixup loss can also be subject to label smoothing when 'label_smoothing' config is defined.
+  mixup_alpha:
+  # scheduler used. This varies the learning rate over time (epochs). Can be 'step' or 'cosine'.
+  scheduler: cosine
+  # momentum used for optimizer
+  momentum: 0.9
+  # weight decay used for optimizer
+  weight_decay: 0.0001
+  # If defined, sets the initial seed to be used for all pseudo random tasks. Mainly for replicability.
+  manual_seed:
+  # results will be printed to log every 'print_freq' steps within the epoch.
+  print_freq: 10
+  # model will be saved every 'save_freq' epochs. Only the last 'save_freq'*2 epoch models will be kept
+  # at any time during training. The best epoch run will also be saved.
+  save_freq: 1
+  # path that models, log and tensorboard data will be saved to.
+  save_path: exp/imagenet/san10_pairwise/model
+  # path to initial weight (default: none)
+  weight:
+  # path to latest checkpoint (default: none)
+  resume:
+  # evaluate on validation set, extra gpu memory needed and small batch_size_val is recommend
+  evaluate: True  
+# Configs for distributed execution. Won't have effect if multiprocessing_distributed is False, and worl_size <=1.
+Distributed:
+  dist_url: tcp://127.0.0.1:6789
+  dist_backend: 'nccl'
+  multiprocessing_distributed: True
+  world_size: 1
+  rank: 0
+
+TEST:
+  test_gpu: [0]
+  test_workers: 10
+  batch_size_test: 100
+  model_path: exp/imagenet/san10_pairwise/model/model_best.pth
