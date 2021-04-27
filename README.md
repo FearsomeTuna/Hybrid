@@ -1,7 +1,9 @@
-# Forked from original paper code.
-This repo takes the original paper code and modifies it to allow train of resnet26 models.
+# About this work
+This repo fork the original [paper](https://hszhao.github.io/papers/cvpr20_san.pdf) code and modifies it to allow train of resnet26 models.
 
-   - Hardware: tested with RTX Titan (24G).
+## Our hardware and software setup
+
+   - Hardware: tested with Titan RTX (24Gb).
    - Software: tested with PyTorch 1.8.1, Python3.8, CUDA toolkit 10.1, CuPy=9.0.0, tensorboardX, [glasses](https://github.com/FrancescoSaverioZuppichini/glasses). See <a href='#exampleInstall'>example installation section</a> for more requirements and install instructions.
 
 <div id="exampleInstall">
@@ -20,36 +22,34 @@ pip install opencv-python requests==2.23.0 matplotlib einops rich torchinfo
 ```
 </div>
 
-## Download and prepare datasets
+<div id="preparation">
 
-Dataset location (or a symbolic link to it) can be changed in config files. Example config files suppose a 'dataset' folder in SAN root (see `sample.yaml` config file in `config/sample` directory). Datasets must be organized in one of 3 ways:
+## Dataset preparation
 
-- One 'data' folder: data is sampled into train and val during runtime.
-- 'train' and 'test' folders: data for train and validation is sampled from 'train' folder at runtime.
-- 'train', 'val' and 'test' folders.
+Datasets must be organized in one of 3 ways:
+
+1. One 'data' folder: data is sampled into train and val during runtime.
+2. 'train' and 'test' folders: data for train and validation is sampled from 'train' folder at runtime.
+3. 'train', 'val' and 'test' folders.
 Keep in mind 'test' folder is not needed for training, so you can make do without it as long as you do not run `test.sh` file.
 
 Independently of which of these 3 configurations are used, images within must be organized into subfolders for each class.
 
-Dataset organization must be declared in config file for correct dataset import (see next sample config file in config directory and <a href='#configSection'>config</a> section for more info).
-
-<div id='configSection'>
-
-## Set configurations on a config file
-
-Along with dataset organization, a variety of experimental parameters can/must be set through config files in the config directory. Along with dataset organization, modifiying configs for batch sizes (train, validation and test) might be of interest to run implemented models on less powerful hardware (train and validation batch sizes of 32 and 16, respectively, where used succesfully on collab environment).
-
-Config files should be placed in the `config` directory using the `{dataset}_{name}.yaml` naming convention.
+Dataset organization must be declared in config file for correct dataset import (see <a href='#configSection'>config</a> section for more info).
 
 </div>
 
-## Example dataset preparation
-Sketch_EITZ and mnist download links can be found on [this](https://github.com/jmsaavedrar/convnet2) repo.EITZ has data in a single folder with all data organized into subfolders for each class already. MNIST is spread in two download links and is compressed in a somewhat cumbersome way. This code can be used to unzip and prepare them, leaving them in `SAN/dataset` folder:
+<div id='examplePreparation'>
+
+## Example dataset download and preparation
+
+Sketch_EITZ and mnist download links can be found on [this](https://github.com/jmsaavedrar/convnet2) repo. EITZ.zip has data organized into subfolders for each class already, but not split (scenario 1 in <a href='#configSection'>preparation section</a>). MNIST data is available through two separate gzip files, that represent training and validation sets. As of the writing of this readme, it's compressed in a somewhat cumbersome way. The following bash script can be used to unzip and prepare both datasets (provided the files have already been downloaded), saving them to their own folders within `SAN/dataset` folder:
 
 ```shell
 SAN_ROOT="/path/to/SAN" # SAN root
-DOWNLOAD_PATH="/path/to/downloaded/files" # download directory
 
+# downloaded files: EITZ.zip, mnist_train.gzip and mnist_test.gzip
+DOWNLOAD_PATH="/path/to/downloaded/files" # download directory
 cd $SAN_ROOT
 mkdir dataset
 
@@ -80,6 +80,19 @@ for i in {0..9}; do mkdir $i; mv *_$i.png $i; done
 
 cd $SAN_ROOT
 ```
+</div>
+
+<div id='configSection'>
+
+## Set configurations on a config file
+
+Dataset location must be specified in config files. Example config files suppose a 'dataset' folder in SAN root (see `sample.yaml` config file in `config/sample` directory).
+
+Along with dataset organization and location, a variety of parameters can/must be set through config YAML files. Modifiying batch sizes (train, validation and test) and number of workers might be of particular interest to run implemented models on less powerful hardware. Train and validation batch sizes of 32 and 16, respectively, along with 2 workers for data loaders where used succesfully on collab environment (12gb vram).
+
+Config files should be placed in the `config` directory using the `{dataset}_{name}.yaml` naming convention.
+
+</div>
 
 ## Example use
 
