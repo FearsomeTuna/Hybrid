@@ -23,13 +23,15 @@ DATA:
 
 TRAIN:
   # architecture
+  # If using hybrid arch, both 'kernels' and 'widths' config params must be set.
+  # Length of 'layer' param must be equal to the sum of 'kernels' and 'widths' params.
   arch: san
   # san architecture type. 0 is pairwise, 1 is patchwise. Only used if architecture is san.
   sa_type: 0
   # number of blocks used in each stage of model. Depends on architecture.
   # For example, resnet is based on 4 stages, each with a varying number of bottleneck blocks.
   layers: [2, 1, 2, 4, 1]
-  # size of kernels. ie 3x3, 7x7, etc. Used in SAN (they don't change in resnet).
+  # size of kernels. ie 3x3, 7x7, etc. Used in SAN (they don't change in classic resnet).
   kernels: [3, 7, 7, 7, 7]
   # resnet channel depth per stage, not used in SAN architecture
   widths:

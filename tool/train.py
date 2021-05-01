@@ -21,6 +21,9 @@ import torch.distributed as dist
 from tensorboardX import SummaryWriter
 
 from model.san import san
+from model.hybrid import hybrid
+from model.resnet import resnet
+
 from util import config
 from util.util import AverageMeter, intersectionAndUnionGPU, find_free_port, mixup_data, mixup_loss, smooth_loss, cal_accuracy
 
@@ -103,11 +106,12 @@ def main_worker(gpu, ngpus_per_node, argss):
     n_channels = 3
     if args.channels: n_channels = args.channels
 
-    if (args.arch == 'resnet'):
-        # resnet26
-        model = ResNet(in_channels=n_channels, n_classes=args.classes, block=ResNetBottleneckBlock, widths=args.widths, depths=args.layers)
-    else: # SAN
+    if (args.arch == 'resnet'): # resnet
+        model = resnet(args.layers, args.widths, args.classes, n_channels)
+    elif args.arch == 'san': # SAN
         model = san(args.sa_type, args.layers, args.kernels, args.classes, in_planes=n_channels)
+    elif args.arch == 'hybrid':
+        model = hybrid(args.sa_type, args.layers, args.widths, args.kernels, args.classes, in_planes=n_channels)
     
     total_params = sum(p.numel() for p in model.parameters())
     total_params_trainable = sum(p.numel() for p in model.parameters() if p.requires_grad)
