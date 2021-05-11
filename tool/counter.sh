@@ -7,7 +7,7 @@
 
 export PYTHONPATH=./
 eval "$(conda shell.bash hook)"
-conda activate gmondacaTorch2  # pytorch env
+conda activate ptEnv  # pytorch env
 PYTHON=python
 
 export PYTHONPATH=./
