@@ -26,6 +26,6 @@ $PYTHON -u ${exp_dir}/train.py \
   --config=${config} \
   2>&1 | tee ${model_dir}/train-$now.log
 
-#$PYTHON -u ${exp_dir}/test.py \
-#  --config=${config} \
-#  2>&1 | tee ${result_dir}/test-$now.log
+$PYTHON -u ${exp_dir}/test.py \
+  --config=${config} \
+  2>&1 | tee ${result_dir}/test-$now.log

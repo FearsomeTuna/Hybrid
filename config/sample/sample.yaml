@@ -13,10 +13,11 @@ DATA:
   std: [0.229, 0.224, 0.225]
   # 0 if data is not split (single folder called 'data'), 1 if it's split into train and
   # test folders (train will be split into train and val sets at runtime),
-  # 2 if split into train, val and test folders (can train with just train and val, test is necesary for test.py).
+  # 2 if split into train, val and test folders (can train with just train and val, test is used for test.py
+  # and only if use_val_set config is False).
   split: 2
-  # [val, test] list if dataset not split, just val ratio if dataset es split into train and
-  # test folders (meaning, ratio used to separate train folder data into train and val).
+  # [val, test] list if dataset not split (split==0), just val ratio if dataset is split into train and
+  # test folders, i.e. split==1 (meaning, ratio used to separate train folder data into train and val).
   # Ignored if already split into train, val and test.
   split_ratio:
 
@@ -100,6 +101,8 @@ Distributed:
   rank: 0
 
 TEST:
+  # if True, use validation set as test set, instead of a separated set
+  use_val_set: True
   test_gpu: [0]
   test_workers: 10
   batch_size_test: 100

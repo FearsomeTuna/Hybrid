@@ -19,6 +19,10 @@ import torch.multiprocessing as mp
 import torch.distributed as dist
 
 from model.san import san
+from model.hybrid import hybrid
+from model.resnet import resnet
+
+from model.san import san
 from util import config
 from util.util import AverageMeter, intersectionAndUnionGPU, cal_accuracy
 
@@ -57,7 +61,17 @@ def main():
     logger.info("=> creating model ...")
     logger.info("Classes: {}".format(args.classes))
     os.environ["CUDA_VISIBLE_DEVICES"] = ','.join(str(x) for x in args.test_gpu)
-    model = san(args.sa_type, args.layers, args.kernels, args.classes)
+
+    n_channels = 3
+    if args.channels: n_channels = args.channels
+
+    if (args.arch == 'resnet'): # resnet
+        model = resnet(args.layers, args.widths, args.classes, n_channels)
+    elif args.arch == 'san': # SAN
+        model = san(args.sa_type, args.layers, args.kernels, args.classes, in_planes=n_channels)
+    elif args.arch == 'hybrid':
+        model = hybrid(args.sa_type, args.layers, args.widths, args.kernels, args.classes, in_planes=n_channels)
+    
     logger.info(model)
     model = torch.nn.DataParallel(model.cuda())
     criterion = nn.CrossEntropyLoss(ignore_index=args.ignore_label)
@@ -71,10 +85,48 @@ def main():
         raise RuntimeError("=> no checkpoint found at '{}'".format(args.model_path))
 
     mean, std = [0.485, 0.456, 0.406], [0.229, 0.224, 0.225]
-    val_transform = transforms.Compose([transforms.Resize(256), transforms.CenterCrop(224), transforms.ToTensor(), transforms.Normalize(mean, std)])
-    val_set = torchvision.datasets.ImageFolder(os.path.join(args.data_root, 'val'), val_transform)
-    val_loader = torch.utils.data.DataLoader(val_set, batch_size=args.batch_size_test, shuffle=False, num_workers=args.test_workers, pin_memory=True)
-    validate(val_loader, model, criterion)
+    if args.mean: mean = args.mean
+    if args.std: std = args.std
+
+    test_transform = transforms.Compose([transforms.Resize(256), transforms.CenterCrop(224), transforms.ToTensor(), transforms.Normalize(mean, std)])
+    if args.channels == 1:
+        test_transform = transforms.Compose([transforms.Grayscale(num_output_channels=1), test_transform])
+
+    if args.manual_seed is not None:
+        random.seed(args.manual_seed)
+        np.random.seed(args.manual_seed)
+
+    if args.split == 0:
+        test_transform_set = torchvision.datasets.ImageFolder(os.path.join(args.data_root, 'data'), test_transform)
+        split_ratio = args.split_ratio
+        dataset_size = len(test_transform_set)
+        indices = list(range(dataset_size))
+        np.random.shuffle(indices)
+
+        val_split = int(np.floor(split_ratio[0] * dataset_size)) # from index 0 to val_split - 1 is val set
+        test_split = int(np.floor(split_ratio[1] * dataset_size)) + val_split # from index val_split to test_split is test set.
+
+        if args.use_val_set:
+            test_set = torch.utils.data.Subset(test_transform_set, indices[:val_split])
+        else:
+            test_set = torch.utils.data.Subset(test_transform_set, indices[val_split:test_split])
+    elif args.split == 1 and args.use_val_set:
+        test_transform_set = torchvision.datasets.ImageFolder(os.path.join(args.data_root, 'train'), test_transform)
+        dataset_size = len(test_transform_set)
+        indices = list(range(dataset_size))
+        np.random.shuffle(indices)
+        split = int(np.floor(split_ratio * dataset_size))
+
+        val_indices = indices[:split]
+        test_set = torch.utils.data.Subset(test_transform_set, val_indices)
+    elif args.split == 1 and not args.use_val_set:
+        test_set = torchvision.datasets.ImageFolder(os.path.join(args.data_root, 'test'), test_transform)
+    elif args.split == 2:
+        folder_name = 'val' if args.use_val_set else 'test'
+        test_set = torchvision.datasets.ImageFolder(os.path.join(args.data_root, folder_name), test_transform)
+    
+    test_loader = torch.utils.data.DataLoader(test_set, batch_size=args.batch_size_test, shuffle=False, num_workers=args.test_workers, pin_memory=True)
+    validate(test_loader, model, criterion)
 
 
 def validate(val_loader, model, criterion):
