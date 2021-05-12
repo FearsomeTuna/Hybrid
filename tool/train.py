@@ -182,8 +182,6 @@ def main_worker(gpu, ngpus_per_node, argss):
         val_transform = transforms.Compose([transforms.Grayscale(num_output_channels=1), val_transform])
 
     if args.split == 0 or args.split == 1:
-        shuffle_dataset = True
-
         folder_name = 'data' if args.split == 0 else 'train'
         
         train_transform_set = torchvision.datasets.ImageFolder(os.path.join(args.data_root, folder_name), train_transform)
@@ -194,7 +192,6 @@ def main_worker(gpu, ngpus_per_node, argss):
         dataset_size = len(train_transform_set) # both are same size
         indices = list(range(dataset_size))
         
-        if shuffle_dataset :
             np.random.shuffle(indices)
 
         if args.split == 0:
