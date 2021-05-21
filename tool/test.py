@@ -50,6 +50,7 @@ def get_logger():
     fmt = "[%(asctime)s %(levelname)s %(filename)s line %(lineno)d %(process)d] %(message)s"
     handler.setFormatter(logging.Formatter(fmt))
     logger.addHandler(handler)
+    logger.propagate = False
     return logger
 
 
