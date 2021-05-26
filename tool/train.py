@@ -19,6 +19,7 @@ import torch.optim.lr_scheduler as lr_scheduler
 import torch.multiprocessing as mp
 import torch.distributed as dist
 from tensorboardX import SummaryWriter
+from PIL import Image
 
 from model.san import san
 from model.hybrid import hybrid
@@ -26,9 +27,7 @@ from model.resnet import resnet
 
 from util import config
 from util.util import AverageMeter, intersectionAndUnionGPU, find_free_port, mixup_data, mixup_loss, smooth_loss, cal_accuracy
-
-from glasses.models import ResNet
-from glasses.models.classification.resnet import ResNetBottleneckBlock
+from util.dataset import PathsFileDataset, InMemoryDataset, pil_loader
 
 cv2.ocl.setUseOpenCL(False)
 cv2.setNumThreads(0)
@@ -176,38 +175,22 @@ def main_worker(gpu, ngpus_per_node, argss):
     if args.std: std = args.std
 
     train_transform = transforms.Compose([transforms.RandomResizedCrop(224), transforms.RandomHorizontalFlip(), transforms.ToTensor(), transforms.Normalize(mean, std)])
+    if args.dataset_init == 'byte_imgs':
+        val_transform = transforms.Compose([transforms.ToTensor(), transforms.Normalize(mean, std)])
+    else:
     val_transform = transforms.Compose([transforms.Resize(256), transforms.CenterCrop(224), transforms.ToTensor(), transforms.Normalize(mean, std)])
 
-    if args.channels == 1:
-        train_transform = transforms.Compose([transforms.Grayscale(num_output_channels=1), train_transform])
-        val_transform = transforms.Compose([transforms.Grayscale(num_output_channels=1), val_transform])
-
-    if args.split == 0 or args.split == 1:
-        folder_name = 'data' if args.split == 0 else 'train'
-        
-        train_transform_set = torchvision.datasets.ImageFolder(os.path.join(args.data_root, folder_name), train_transform)
-        val_transform_set = torchvision.datasets.ImageFolder(os.path.join(args.data_root, folder_name), val_transform)
-
-        split_ratio = args.split_ratio
-
-        dataset_size = len(train_transform_set) # both are same size
-        indices = list(range(dataset_size))
-        
-            np.random.shuffle(indices)
-
-        if args.split == 0:
-            val_split = int(np.floor(split_ratio[0] * dataset_size)) # from index 0 to val_split - 1 is val set
-            test_split = int(np.floor(split_ratio[1] * dataset_size)) + val_split # from index val_split to test_split is test set.
-            train_indices, val_indices = indices[test_split:], indices[:val_split]
+    if args.dataset_init == 'preprocessed_paths':
+        train_set = PathsFileDataset(args.data_root, 'train_init.pt', transform=train_transform)
+        val_set = PathsFileDataset(args.data_root, 'val_init.pt', transform=val_transform)
+    elif args.dataset_init == 'image_folder':
+        train_set = torchvision.datasets.ImageFolder(os.path.join(args.data_root, 'train'), train_transform, loader=pil_loader)
+        val_set = torchvision.datasets.ImageFolder(os.path.join(args.data_root, 'val'), val_transform, loader=pil_loader)
+    elif args.dataset_init == 'byte_imgs':
+        train_set = InMemoryDataset(os.path.join(args.data_root, 'train_imgs.pt'), train_transform)
+        val_set = InMemoryDataset(os.path.join(args.data_root, 'val_imgs.pt'), val_transform)
         else:
-            split = int(np.floor(split_ratio * dataset_size))
-            train_indices, val_indices = indices[split:], indices[:split]
-
-        train_set = torch.utils.data.Subset(train_transform_set, train_indices)
-        val_set = torch.utils.data.Subset(val_transform_set, val_indices)
-    else: # case args.split == 2
-        train_set = torchvision.datasets.ImageFolder(os.path.join(args.data_root, 'train'), train_transform)
-        val_set = torchvision.datasets.ImageFolder(os.path.join(args.data_root, 'val'), val_transform)
+        raise ValueError("Invalid value for dataset_init config argument.")
 
     if args.distributed:
         train_sampler = torch.utils.data.distributed.DistributedSampler(train_set)

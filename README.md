@@ -1,5 +1,5 @@
 # About this work
-This repo fork the original [paper](https://hszhao.github.io/papers/cvpr20_san.pdf) code and modifies it to allow train of resnet26 models.
+This repo fork the original [paper](https://hszhao.github.io/papers/cvpr20_san.pdf) code and modifies it to allow training of other architectures and to better address our needs.
 
 ## Our hardware and software setup
 
@@ -26,14 +26,14 @@ pip install opencv-python requests==2.23.0 matplotlib einops rich torchinfo
 
 ## Dataset preparation
 
-Datasets must be organized in one of 3 ways:
+Prior to training, datasets must be already split and organized in 'train', 'val' and (possibly) 'test' folders. Each of these folders must containing subfolders for each class, containing its images.
 
-1. One 'data' folder: data is sampled into train and val during runtime.
-2. 'train' and 'test' folders: data for train and validation is sampled from 'train' folder at runtime.
-3. 'train', 'val' and 'test' folders.
-Keep in mind 'test' folder is not needed for training, so you can make do without it as long as you do not run `test.sh` file.
+To cut some training time, customs files can be provided:
 
-Independently of which of these 3 configurations are used, images within must be organized into subfolders for each class.
+1. Custom files with list of (image_path, target_class) tuples already calculated.
+2. Custom files with byte images ready to be loaded whole into memory.
+
+These custom files can be generated using some of the utilities in `tool/dataset_tool` folder.
 
 Dataset organization must be declared in config file for correct dataset import (see <a href='#configSection'>config</a> section for more info).
 
@@ -46,10 +46,10 @@ Dataset organization must be declared in config file for correct dataset import 
 Sketch_EITZ and mnist download links can be found on [this](https://github.com/jmsaavedrar/convnet2) repo. EITZ.zip has data organized into subfolders for each class already, but not split (scenario 1 in <a href='#configSection'>preparation section</a>). MNIST data is available through two separate gzip files, that represent training and validation sets. As of the writing of this readme, it's compressed in a somewhat cumbersome way. The following bash script can be used to unzip and prepare both datasets (provided the files have already been downloaded), saving them to their own folders within `SAN/dataset` folder:
 
 ```shell
-SAN_ROOT="/path/to/SAN" # SAN root
-
 # downloaded files: EITZ.zip, mnist_train.gzip and mnist_test.gzip
 DOWNLOAD_PATH="/path/to/downloaded/files" # download directory
+
+SAN_ROOT="/path/to/SAN"
 cd $SAN_ROOT
 mkdir dataset
 
@@ -80,6 +80,20 @@ for i in {0..9}; do mkdir $i; mv *_$i.png $i; done
 
 cd $SAN_ROOT
 ```
+
+Sketch_EITZ dataset can then be split by user using provided utilities, or manually by other means. Here, we will make custom paths files.
+To run generic python files inside conda environment, we use `run_env.sh` script, this just activates conda environment and passes remaining arguments to python file:
+
+```sh
+cd SAN
+# first we make paths file. Last 3 arguments are input folder (images), output folder for generated file, and output filename.
+sh tool/run_env.sh tool/dataset_tool/make_dataset_paths.py dataset/Sketch_EITZ/data dataset/Sketch_EITZ data_init.pt
+# take dataset/Sketch_EITZ/data_init.pt info and split it in two sets according to 0.8 and 0.2 ratios. Output to dataset/Sketch_EITZ
+sh tool/run_env.sh tool/dataset_tool/split_dataset.py dataset/Sketch_EITZ/data_init.pt dataset/Sketch_EITZ -r 0.8
+# rename output files
+mv dataset/Sketch_EITZ/split_0.pt dataset/Sketch_EITZ/train_init.pt
+mv dataset/Sketch_EITZ/split_1.pt dataset/Sketch_EITZ/val_init.pt
+```
 </div>
 
 <div id='configSection'>
@@ -88,9 +102,9 @@ cd $SAN_ROOT
 
 Dataset location must be specified in config files. Example config files suppose a 'dataset' folder in SAN root (see `sample.yaml` config file in `config/sample` directory).
 
-Along with dataset organization and location, a variety of parameters can/must be set through config YAML files. Modifiying batch sizes (train, validation and test) and number of workers might be of particular interest to run implemented models on less powerful hardware. Train and validation batch sizes of 32 and 16, respectively, along with 2 workers for data loaders where used succesfully on collab environment (12gb vram).
+Along with dataset organization and location, a variety of parameters can/must be set through config YAML files. Modifiying batch sizes (train, validation and test) and number of workers might be of particular interest to run implemented models on less powerful hardware. Train and validation batch sizes of 32 and 16, respectively, along with 2 workers for data loaders, where used succesfully on collab environment (12gb vram).
 
-Config files should be placed in the `config` directory using the `{dataset}_{name}.yaml` naming convention.
+Config files should be placed inside a `config/{dataset}` directory using the `{dataset}_{name}.yaml` naming convention.
 
 </div>
 
@@ -103,7 +117,7 @@ export PYTHONPATH=./
 eval "$(conda shell.bash hook)"
 conda activate torchEnv # set this to your conda environment name
 ```
-The following example runs training using `sketch_eitz_resnet26.yaml` config file located in `config/sketch_eitz` folder.
+The following example runs training and testing using `sketch_eitz_resnet26.yaml` config file located in `config/sketch_eitz` folder.
 
 ```shell
 cd SAN
@@ -111,14 +125,11 @@ sh tool/train.sh sketch_eitz resnet26
 ```
 
 ## See results on tensorboard
-
+Tensorboard results take some time to fully load, even if interface is already loaded. Refresh to see more of the results while they load on the background.
 ```shell
 cd SAN
 tensorboard --logdir exp
 ```
-
-## Google Collab Demo
-An example use can be found on https://colab.research.google.com/drive/1iq6aeMK6lryka6WYimRszTy3uT44h8Ts#scrollTo=Dh5iyYNLh1ys. This is based on an older commit, with different training configs to adjust to collab gpu.
 
 # Original readme follows:
 

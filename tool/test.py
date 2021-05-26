@@ -7,6 +7,8 @@ import logging
 import argparse
 import shutil
 
+from PIL import Image
+
 import torch
 import torch.backends.cudnn as cudnn
 import torch.nn as nn
@@ -22,9 +24,9 @@ from model.san import san
 from model.hybrid import hybrid
 from model.resnet import resnet
 
-from model.san import san
 from util import config
 from util.util import AverageMeter, intersectionAndUnionGPU, cal_accuracy
+from util.dataset import PathsFileDataset, InMemoryDataset, pil_loader
 
 cv2.ocl.setUseOpenCL(False)
 cv2.setNumThreads(0)
@@ -89,42 +91,24 @@ def main():
     if args.mean: mean = args.mean
     if args.std: std = args.std
 
+    if args.dataset_init == 'byte_imgs':
+        test_transform = transforms.Compose([transforms.ToTensor(), transforms.Normalize(mean, std)])
+    else:
     test_transform = transforms.Compose([transforms.Resize(256), transforms.CenterCrop(224), transforms.ToTensor(), transforms.Normalize(mean, std)])
-    if args.channels == 1:
-        test_transform = transforms.Compose([transforms.Grayscale(num_output_channels=1), test_transform])
 
     if args.manual_seed is not None:
         random.seed(args.manual_seed)
         np.random.seed(args.manual_seed)
 
-    if args.split == 0:
-        test_transform_set = torchvision.datasets.ImageFolder(os.path.join(args.data_root, 'data'), test_transform)
-        split_ratio = args.split_ratio
-        dataset_size = len(test_transform_set)
-        indices = list(range(dataset_size))
-        np.random.shuffle(indices)
-
-        val_split = int(np.floor(split_ratio[0] * dataset_size)) # from index 0 to val_split - 1 is val set
-        test_split = int(np.floor(split_ratio[1] * dataset_size)) + val_split # from index val_split to test_split is test set.
-
-        if args.use_val_set:
-            test_set = torch.utils.data.Subset(test_transform_set, indices[:val_split])
+    folder_name = 'val' if args.use_val_set else 'test'
+    if args.dataset_init == 'preprocessed_paths':
+        test_set = PathsFileDataset(args.data_root, folder_name + '_init.pt', transform=test_transform)
+    elif args.dataset_init == 'image_folder':
+        test_set = torchvision.datasets.ImageFolder(os.path.join(args.data_root, folder_name), test_transform, loader=pil_loader)
+    elif args.dataset_init == 'byte_imgs':
+        test_set = InMemoryDataset(os.path.join(args.data_root, folder_name + '_imgs.pt'), test_transform)
         else:
-            test_set = torch.utils.data.Subset(test_transform_set, indices[val_split:test_split])
-    elif args.split == 1 and args.use_val_set:
-        test_transform_set = torchvision.datasets.ImageFolder(os.path.join(args.data_root, 'train'), test_transform)
-        dataset_size = len(test_transform_set)
-        indices = list(range(dataset_size))
-        np.random.shuffle(indices)
-        split = int(np.floor(split_ratio * dataset_size))
-
-        val_indices = indices[:split]
-        test_set = torch.utils.data.Subset(test_transform_set, val_indices)
-    elif args.split == 1 and not args.use_val_set:
-        test_set = torchvision.datasets.ImageFolder(os.path.join(args.data_root, 'test'), test_transform)
-    elif args.split == 2:
-        folder_name = 'val' if args.use_val_set else 'test'
-        test_set = torchvision.datasets.ImageFolder(os.path.join(args.data_root, folder_name), test_transform)
+        raise ValueError("Invalid value for dataset_init config argument.")
     
     test_loader = torch.utils.data.DataLoader(test_set, batch_size=args.batch_size_test, shuffle=False, num_workers=args.test_workers, pin_memory=True)
     validate(test_loader, model, criterion)
