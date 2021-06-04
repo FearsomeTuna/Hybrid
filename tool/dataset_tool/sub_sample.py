@@ -64,14 +64,16 @@ if __name__ == '__main__':
         
         Outputs a file 'sub_data_init.pt' with same dictionary keys as input file but values reflecting subsampled data.''')
     parser.add_argument('file_path', type=str, help='Path to file with dataset initialization info.')
-    parser.add_argument('output_path', type=str, help='Output folder location for generated file')
+    parser.add_argument('output_file', type=str, help='Output path for generated file.')
     parser.add_argument('-n', '--n', type=int, help='Number of random samples to take from each sampled class. Must be no larger than the smallest class. Cannot be used with frac argument.')
     parser.add_argument('-f', '--frac', type=float, help='Fraction of random samples to be taken from each sampled class. Must be number between zero and one. Cannot be used with n argument.')
-    parser.add_argument('-c', '--subclassnum', type=int, help='Number of random classes to be included from original dataset.')
+    parser.add_argument('-c', '--subclassnum', type=int, help='Number of random classes to be included from original dataset. Cannot be used with excludefile argument.')
+    parser.add_argument('-e', '--excludefile', type=str, help='Custom file with same format as file_path argument. Classes included in present subsample will be those in the set difference between file_path argument file classes and this argument file classes. Cannot be used with subclassnum argument.')
     parser.add_argument('-s', '--seed', type=int, help='Pseudo random number generator seed. Used for replicability.')
     args = parser.parse_args()
 
     assert (args.n is None and args.frac is not None) or (args.n is not None and args.frac is None)
+    assert args.subclassnum is None or args.excludefile is None
 
     if args.seed:
         random.seed(args.seed)
@@ -87,6 +89,14 @@ if __name__ == '__main__':
         old_to_new_map = {old_idx: new_idx for new_idx, old_idx in enumerate(sampled_classes)}
         class_to_idx = {k: old_to_new_map[v] for k, v in load_file['class_to_idx'].items() if v in sampled_classes}
         classes = sorted(list(class_to_idx.keys()))
+    elif args.excludefile:
+        print("Excluding classes from exclude file...")
+        exclude_file = torch.load(args.excludefile)
+        exclude_classes = set(exclude_file['classes'])
+        classes = sorted(list(set(load_file['classes']) - exclude_classes))
+        sampled_classes = sorted([v for k, v in load_file['class_to_idx'].items() if k in classes])
+        old_to_new_map = {old_idx: new_idx for new_idx, old_idx in enumerate(sampled_classes)}
+        class_to_idx = {k: old_to_new_map[v] for k, v in load_file['class_to_idx'].items() if v in sampled_classes}
     else:
         sampled_classes = None
         class_to_idx = load_file['class_to_idx']
@@ -97,7 +107,7 @@ if __name__ == '__main__':
 
     print("Sumsampled {} elements from original dataset.".format(len(sub_samples)))
 
-    if args.subclassnum:
+    if args.subclassnum or args.excludefile:
         print("Reindexing classes...")
         final_samples = [(path, old_to_new_map[old_class_idx]) for (path, old_class_idx) in sub_samples]
     else:
@@ -106,7 +116,7 @@ if __name__ == '__main__':
     print("Displaying sampled classes")
     pprint.pprint(class_to_idx)
 
-    filename = os.path.join(args.output_path, 'sub_data_init.pt')
+    filename = args.output_file
     print("Saving results to {}".format(filename))
     torch.save({
         'classes': classes,

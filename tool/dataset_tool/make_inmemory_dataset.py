@@ -22,7 +22,7 @@ if __name__ == '__main__':
         samples (list): List of (bytes, class_index) tuples, where bytes is a BytesIO object and class_index is int.
         ''')
     parser.add_argument('file_path', type=str, help='Path to file with dataset initialization info, i.e. a list of (img_path, class_idx) tuples.')
-    parser.add_argument('output_path', type=str, help='Output folder location for generated file')
+    parser.add_argument('output_filepath', type=str, help='Output file path for generated file')
     parser.add_argument('-n', '--noValTransforms', nargs='?', const=True, default=False, help='Do not apply any transforms.')
     parser.add_argument('-t', '--type', type=str, required=True, help='Either train or val. Used to pick appropiate transforms.')
     args = parser.parse_args()
@@ -60,6 +60,6 @@ if __name__ == '__main__':
 
     load_file['samples'] = processed_samples
 
-    filename = os.path.join(args.output_path, args.type + '_imgs.pt')
+    filename = args.output_filepath
     print("Saving results to {}".format(filename))
     torch.save(load_file, filename)
