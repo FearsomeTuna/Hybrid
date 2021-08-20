@@ -1,17 +1,11 @@
 DATA:
-  data_root: dataset/Sketch_EITZ
-  from_file: False
-  data_name: sketch_eitz
-  classes: 250
+  data_root: dataset/miniQuickDraw
+  dataset_init: byte_imgs
+  data_name: mini_quickdraw
+  classes: 300
   mean: [0.1307]
   std: [0.3081]
-  channels: 1 
-  split: 0
-  split_ratio: [0.2, 0.0]
-  sub_sample: False
-  sub_class_num:
-  n_per_class:
-  frac:
+  channels: 1
 
 TRAIN:
   arch: resnet
@@ -20,10 +14,10 @@ TRAIN:
   ignore_label: 2000
   train_gpu: [0]
   workers: 2
-  batch_size: 256
-  batch_size_val: 128
+  batch_size: 64
+  batch_size_val: 32
   base_lr: 0.1
-  epochs: 100
+  epochs: 20
   start_epoch: 0
   step_epochs: [30, 60, 90]
   label_smoothing: 0.1
@@ -31,10 +25,10 @@ TRAIN:
   scheduler: cosine
   momentum: 0.9
   weight_decay: 0.0001
-  manual_seed: 42
+  manual_seed:
   print_freq: 10
   save_freq: 1
-  save_path: exp/sketch_eitz/resnet26/model
+  save_path: exp/mini_quickdraw/resnet26/model
   weight:
   resume:
   evaluate: True
@@ -47,10 +41,7 @@ Distributed:
 
 TEST:
   use_val_set: True
-  zeroshot_testing: False
-  test_n_per_class:
-  test_frac:
   test_gpu: [0]
   test_workers: 2
   batch_size_test: 100
-  model_path: exp/sketch_eitz/resnet26/model/model_best.pth
+  model_path: exp/mini_quickdraw/resnet26/model/model_best.pth

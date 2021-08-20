@@ -14,8 +14,10 @@ DATA:
   frac:
 
 TRAIN:
-  arch: resnet
-  widths: [256, 512, 1024, 2048]
+  arch: hybrid
+  sa_type: 1
+  widths: [256, 512]
+  kernels: [7, 7]
   layers: [1, 2, 4, 1]
   ignore_label: 2000
   train_gpu: [0]
@@ -34,7 +36,7 @@ TRAIN:
   manual_seed: 42
   print_freq: 10
   save_freq: 1
-  save_path: exp/sketch_eitz/resnet26/model
+  save_path: exp/sketch_eitz/hybrid_patch_2-2/model
   weight:
   resume:
   evaluate: True
@@ -53,4 +55,4 @@ TEST:
   test_gpu: [0]
   test_workers: 2
   batch_size_test: 100
-  model_path: exp/sketch_eitz/resnet26/model/model_best.pth
+  model_path: exp/sketch_eitz/hybrid_patch_2-2/model/model_best.pth

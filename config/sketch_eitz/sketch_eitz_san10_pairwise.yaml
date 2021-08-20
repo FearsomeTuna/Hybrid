@@ -1,12 +1,17 @@
 DATA:
   data_root: dataset/Sketch_EITZ
+  from_file: False
   data_name: sketch_eitz
   classes: 250
   mean: [0.1307]
   std: [0.3081]
   channels: 1
   split: 0
-  split_ratio: [0.2, 0.1]
+  split_ratio: [0.2, 0.0]
+  sub_sample: False
+  sub_class_num:
+  n_per_class:
+  frac:
 
 TRAIN:
   arch: san
@@ -16,8 +21,8 @@ TRAIN:
   ignore_label: 2000
   train_gpu: [0]
   workers: 2
-  batch_size: 256
-  batch_size_val: 128
+  batch_size: 64
+  batch_size_val: 32
   base_lr: 0.1
   epochs: 100
   start_epoch: 0
@@ -27,7 +32,7 @@ TRAIN:
   scheduler: cosine
   momentum: 0.9
   weight_decay: 0.0001
-  manual_seed:
+  manual_seed: 42
   print_freq: 10
   save_freq: 1
   save_path: exp/sketch_eitz/san10_pairwise/model
@@ -42,7 +47,11 @@ Distributed:
   rank: 0
 
 TEST:
+  use_val_set: True
+  zeroshot_testing: False
+  test_n_per_class:
+  test_frac:
   test_gpu: [0]
-  test_workers: 10
+  test_workers: 2
   batch_size_test: 100
   model_path: exp/sketch_eitz/san10_pairwise/model/model_best.pth
