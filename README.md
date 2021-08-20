@@ -1,5 +1,5 @@
 # About this work
-This repo fork the original [paper](https://hszhao.github.io/papers/cvpr20_san.pdf) code and modifies it to allow training of other architectures and to better address our needs.
+This repo forks the original [paper](https://hszhao.github.io/papers/cvpr20_san.pdf) code and modifies it to allow training of other architectures and to better address our needs.
 
 ## Our hardware and software setup
 
@@ -18,7 +18,7 @@ conda create -n torchEnv
 conda activate torchEnv
 conda install pytorch=1.8.1 torchvision=0.9.1 cupy=9.0.0 cudatoolkit=10.1 pyyaml tensorboardx -c pytorch -c conda-forge
 pip install git+https://github.com/FrancescoSaverioZuppichini/glasses@1dbe60f99c68f8b65efb7d70fe829623fdb4a689
-pip install opencv-python requests==2.23.0 matplotlib einops rich torchinfo
+pip install opencv-python requests==2.23.0 matplotlib einops rich torchinfo torchmetrics
 ```
 </div>
 

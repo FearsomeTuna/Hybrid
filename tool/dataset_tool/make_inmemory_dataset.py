@@ -38,6 +38,7 @@ if __name__ == '__main__':
     load_file = torch.load(args.file_path)
     samples = load_file['samples']
     total = len(samples)
+    print("Samples to process: {}".format(total))
 
     i = 0
     def process(tup):
