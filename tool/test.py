@@ -65,8 +65,7 @@ def main():
     logger.info("Classes: {}".format(args.classes))
     os.environ["CUDA_VISIBLE_DEVICES"] = ','.join(str(x) for x in args.test_gpu)
 
-    n_channels = 3
-    if args.channels: n_channels = args.channels
+    n_channels = args.channels
 
     if (args.arch == 'resnet'): # resnet
         model = resnet(args.layers, args.widths, args.classes, n_channels)

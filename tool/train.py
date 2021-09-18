@@ -103,8 +103,7 @@ def main_worker(gpu, ngpus_per_node, argss):
             args.rank = args.rank * ngpus_per_node + gpu
         dist.init_process_group(backend=args.dist_backend, init_method=args.dist_url, world_size=args.world_size, rank=args.rank)
 
-    n_channels = 3
-    if args.channels: n_channels = args.channels
+    n_channels = args.channels
 
     if (args.arch == 'resnet'): # resnet
         model = resnet(args.layers, args.widths, args.classes, n_channels)

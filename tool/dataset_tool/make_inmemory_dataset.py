@@ -16,10 +16,12 @@ if __name__ == '__main__':
         No normalization or transformation to tensor is performed.
         This format uses less space than saving tensor objects directly.
         
-        Output file contains dictionary with at least the following keys:
+        Input custom file is opened via torch.load and must be dictionary with at least the following keys:
         classes (list): List of the class names sorted alphabetically.
         class_to_idx (dict): Dict with items (class_name, class_index).
         samples (list): List of (bytes, class_index) tuples, where bytes is a BytesIO object and class_index is int.
+
+        Output file has at least the same keys.
         ''')
     parser.add_argument('file_path', type=str, help='Path to file with dataset initialization info, i.e. a list of (img_path, class_idx) tuples.')
     parser.add_argument('output_filepath', type=str, help='Output file path for generated file')

@@ -7,7 +7,7 @@ import pandas as pd
 import torch
 
 def split_dataset(ratios: Union[List[float], float], samples: List[Tuple[str, int]]) -> List[List[Tuple[str,int]]]:
-    """Splits dataset in dictionary according to given ratios, returning the lists of tuples selected for each subset.
+    """Splits dataset according to given ratios, returning the lists of tuples selected for each subset.
 
     Ratios provided must sum less than 1 in total, the last ratio is inferred.
     Thus, the number of subset lists returned is the number of ratios provided plus one.
@@ -46,9 +46,9 @@ def split_dataset(ratios: Union[List[float], float], samples: List[Tuple[str, in
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
-        description='''Splits dataset taken from custom file (see torch.save) with dataset images paths
+        description='''Splits dataset taken from custom file with dataset images paths
         and outputs a new file with same format for each partition.
-        Custom file must have dictionary with at least the following keys:
+        Custom input file is loaded via torch.load and must be dictionary with at least the following keys:
         
         classes (list): List of the class names sorted alphabetically.
         class_to_idx (dict): Dict with items (class_name, class_index).
@@ -59,7 +59,7 @@ if __name__ == '__main__':
         order as provided ratios. Output format has same dictionary keys as input file but values reflecting split data.''')
     parser.add_argument('custom_path', type=str, help='Path to custom file with dataset initialization info.')
     parser.add_argument('output_path', type=str, help='Output folder location for generated files')
-    parser.add_argument('-r', '--ratios', type=float, nargs='+', help='Ratios for data split. Should be positive and sum must be less than 1. Aditional ratio is inferred from difference to 1.')
+    parser.add_argument('-r', '--ratios', type=float, nargs='+', help='Ratios for data split. Should be positive and sum must be less than 1. Last ratio is inferred from difference to 1.')
     args = parser.parse_args()
 
     assert sum(args.ratios) < 1
