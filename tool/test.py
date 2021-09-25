@@ -21,8 +21,9 @@ import torch.multiprocessing as mp
 import torch.distributed as dist
 
 from model.san import san
-from model.hybrid import hybrid
+from model.hybrid import MixedModel
 from model.resnet import resnet
+from model.nl import PureNonLocal2D
 
 from util import config
 from util.util import AverageMeter, intersectionAndUnionGPU, cal_accuracy
@@ -65,14 +66,14 @@ def main():
     logger.info("Classes: {}".format(args.classes))
     os.environ["CUDA_VISIBLE_DEVICES"] = ','.join(str(x) for x in args.test_gpu)
 
-    n_channels = args.channels
-
     if (args.arch == 'resnet'): # resnet
-        model = resnet(args.layers, args.widths, args.classes, n_channels)
+        model = resnet(args.layers, args.classes, args.grayscale)
     elif args.arch == 'san': # SAN
-        model = san(args.sa_type, args.layers, args.kernels, args.classes, in_planes=n_channels)
+        model = san(args.sa_type, args.layers, args.kernels, args.classes, args.grayscale)
+    elif args.arch == 'nl':
+        model = PureNonLocal2D(args.layers, args.classes, args.grayscale, 'dot')
     elif args.arch == 'hybrid':
-        model = hybrid(args.sa_type, args.layers, args.widths, args.kernels, args.classes, in_planes=n_channels)
+        model = MixedModel(args.layers, args.layer_types, args.widths, args.grayscale, args.classes, args.layer_types[0], args.sa_type if 'san' in args.layer_types else None, args.added_nl_blocks)
     
     logger.info(model)
     model = torch.nn.DataParallel(model.cuda())

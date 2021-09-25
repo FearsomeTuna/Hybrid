@@ -14,8 +14,8 @@ DATA:
   data_name: imagenet
   # classes: number of classes
   classes: 1000
-  # channels: number of channels for input dataset (3 for RGB and 1 for Grayscale).
-  channels: 3
+  # grayscale: whether images are grayscale (1 channel).
+  grayscale: False
   # mean: dataset mean for each input channel, defaults to imagenet values if not defined.
   mean: [0.485, 0.456, 0.406]
   # std: dataset standard deviation for each input channel, defaults to imagenet values if not defined.
@@ -23,20 +23,23 @@ DATA:
 
 
 TRAIN:
-  # arch: architecture, either 'san', 'resnet' or 'hybrid'.
-  # If using hybrid arch, both 'kernels' and 'widths' config params must be set.
-  # Length of 'layer' param must be equal to the sum of 'kernels' and 'widths' params.
+  # arch: architecture, either 'san', 'resnet', 'hybrid' or 'nl'.
+  # Length of 'layer' param must be equal to the length of 'kernels' if arch is san.
   arch: san
-  # sa_type: san architecture type. 0 is pairwise, 1 is patchwise. Only used if architecture is san.
+  # layer_types: only used with hybrid architecture. List indicating base block type for each stage. Each element must be either 'san', 'res', or 'nl'.
+  # Length must be equal to 'layers' config.
+  layer_types:
+  # sa_type: san architecture type. 0 is pairwise, 1 is patchwise. Only used if architecture is san or hybrid with san_stages > 0.
   sa_type: 0
-  # layers: number of blocks used in each stage of model.
-  # For example, resnet is based on 4 stages, each with a varying number of bottleneck blocks.
-  # Deault SAN is based on 5 stages.
-  layers: [2, 1, 2, 4, 1]
-  # kernels: size of kernels. ie 3x3, 7x7, etc. Used in SAN (they don't change in classic resnet).
-  kernels: [3, 7, 7, 7, 7]
-  # widths: resnet channel depth per stage, not used in SAN architecture
+  # widths: used only on hybrid arch. indicates the output channel dimension of each stage. Length must be equal to 'layers' config.
   widths:
+  # added_nl_blocks: Used only if arch is hybrid. list indicating amount of non-local blocks to add to each stage. Each stage must have equal or less non-local
+  # blocks than main type of block. Length must be equal to 'layers' config.
+  added_nl_blocks:
+  # layers: number of blocks used in each stage of model.
+  layers: [2, 1, 2, 4, 1]
+  # kernels: size of kernels. ie 3x3, 7x7, etc. Used in san arch. Length must be equal to 'layers' config.
+  kernels: [3, 7, 7, 7, 7]
   # ignore_label: allows a class index to be ignored
   ignore_label: 2000
   # train_gpu: list of gpus to be used, requires correct distributed configurations (see Distributed section below) to have effect.

@@ -1,29 +1,24 @@
 DATA:
   data_root: dataset/Sketch_EITZ
-  from_file: False
+  dataset_init: byte_imgs
   data_name: sketch_eitz
   classes: 250
   mean: [0.1307]
   std: [0.3081]
-  channels: 1 
-  split: 0
-  split_ratio: [0.2, 0.0]
-  sub_sample: False
-  sub_class_num:
-  n_per_class:
-  frac:
+  grayscale: True
 
 TRAIN:
   arch: hybrid
+  layer_types: [res, res, res, san]
   sa_type: 1
-  widths: [256, 512, 1024]
-  kernels: [7]
+  widths: [256, 512, 1024, 2048]
   layers: [1, 2, 4, 1]
+  added_nl_blocks: [0, 0, 0, 0]
   ignore_label: 2000
-  train_gpu: [0]
+  train_gpu: [0, 1]
   workers: 2
-  batch_size: 256
-  batch_size_val: 128
+  batch_size: 64
+  batch_size_val: 32
   base_lr: 0.1
   epochs: 100
   start_epoch: 0
@@ -33,7 +28,7 @@ TRAIN:
   scheduler: cosine
   momentum: 0.9
   weight_decay: 0.0001
-  manual_seed: 42
+  manual_seed:
   print_freq: 10
   save_freq: 1
   save_path: exp/sketch_eitz/hybrid_patch_3-1/model
@@ -43,15 +38,12 @@ TRAIN:
 Distributed:
   dist_url: tcp://127.0.0.1:6789
   dist_backend: 'nccl'
-  multiprocessing_distributed: False
+  multiprocessing_distributed: True
   world_size: 1
   rank: 0
 
 TEST:
   use_val_set: True
-  zeroshot_testing: False
-  test_n_per_class:
-  test_frac:
   test_gpu: [0]
   test_workers: 2
   batch_size_test: 100

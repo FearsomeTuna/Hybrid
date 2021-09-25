@@ -68,7 +68,7 @@ if __name__ == '__main__':
     parser.add_argument('-n', '--n', type=int, help='Number of random samples to take from each sampled class. Must be no larger than the smallest class. Cannot be used with frac argument.')
     parser.add_argument('-f', '--frac', type=float, help='Fraction of random samples to be taken from each sampled class. Must be number between zero and one. Cannot be used with n argument.')
     parser.add_argument('-c', '--subclassnum', type=int, help='Number of random classes to be included from original dataset. Cannot be used with excludefile argument.')
-    parser.add_argument('-e', '--excludefile', type=str, help='Custom file with same format as file_path argument. Classes included in present subsample will be those in the set difference between file_path argument file classes and this argument file classes. Cannot be used with subclassnum argument.')
+    parser.add_argument('-e', '--excludefile', type=str, help='Path of custom file with same format as file_path argument. Classes included in subsample will be those in the set difference between file_path classes and excludefile classes. Cannot be used with subclassnum argument.')
     parser.add_argument('-s', '--seed', type=int, help='Pseudo random number generator seed. Used for replicability.')
     args = parser.parse_args()
 

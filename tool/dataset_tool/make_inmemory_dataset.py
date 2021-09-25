@@ -10,10 +10,10 @@ if __name__ == '__main__':
         description='''Loads images objects , applies tranforms for --type val and saves them to file as io.BytesIO objects
         with torch.save().
         Generated file is meant to be loaded whole into memory during training.
-        Transforms are not performed on --type train (because they're meant to be mostly random
-        augmentations performed at runtime).
+        Only resize to 256x256 is performed on --type train (because other transforms on train are mostly meant to be random
+        augmentations performed at training runtime).
         For --type val, images are resized to 256x256 followed by center crop (224x224).
-        No normalization or transformation to tensor is performed.
+        No normalization or transformation to tensor is performed (these will be performed at training runtime).
         This format uses less space than saving tensor objects directly.
         
         Input custom file is opened via torch.load and must be dictionary with at least the following keys:
@@ -29,8 +29,10 @@ if __name__ == '__main__':
     parser.add_argument('-t', '--type', type=str, required=True, help='Either train or val. Used to pick appropiate transforms.')
     args = parser.parse_args()
     
-    if args.noValTransforms or args.type == 'train':
+    if args.noValTransforms:
         transform = lambda x : x
+    elif args.type == 'train':
+        transform = transforms.Resize(256)
     elif args.type == 'val':
         transform = transforms.Compose([transforms.Resize(256), transforms.CenterCrop(224)])
     else:

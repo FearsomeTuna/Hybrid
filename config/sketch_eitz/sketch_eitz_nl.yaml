@@ -1,24 +1,20 @@
 DATA:
   data_root: dataset/Sketch_EITZ
+  dataset_init: byte_imgs
   data_name: sketch_eitz
   classes: 250
   mean: [0.1307]
   std: [0.3081]
-  channels: 1 
-  split: 0
-  split_ratio: [0.2, 0.1]
+  grayscale: True
 
 TRAIN:
-  arch: hybrid
-  sa_type: 1
-  widths: [256, 512]
-  kernels: [7, 7]
+  arch: nl
   layers: [1, 2, 4, 1]
   ignore_label: 2000
-  train_gpu: [0]
+  train_gpu: [0, 1]
   workers: 2
-  batch_size: 256
-  batch_size_val: 128
+  batch_size: 64
+  batch_size_val: 32
   base_lr: 0.1
   epochs: 100
   start_epoch: 0
@@ -31,19 +27,20 @@ TRAIN:
   manual_seed:
   print_freq: 10
   save_freq: 1
-  save_path: exp/sketch_eitz/hybrid_2-2/model
+  save_path: exp/sketch_eitz/nl/model
   weight:
   resume:
   evaluate: True
 Distributed:
   dist_url: tcp://127.0.0.1:6789
   dist_backend: 'nccl'
-  multiprocessing_distributed: False
+  multiprocessing_distributed: True
   world_size: 1
   rank: 0
 
 TEST:
+  use_val_set: True
   test_gpu: [0]
-  test_workers: 10
+  test_workers: 2
   batch_size_test: 100
-  model_path: exp/sketch_eitz/hybrid_2-2/model/model_best.pth
+  model_path: exp/sketch_eitz/nl/model/model_best.pth

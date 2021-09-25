@@ -1,3 +1,4 @@
+from util.util import init_weights
 import torch
 import torch.nn as nn
 
@@ -69,6 +70,7 @@ class Bottleneck(nn.Module):
         self.conv = nn.Conv2d(mid_planes, out_planes, kernel_size=1)
         self.relu = nn.ReLU(inplace=True)
         self.stride = stride
+        init_weights(self)
 
     def forward(self, x):
         identity = x
@@ -78,7 +80,6 @@ class Bottleneck(nn.Module):
         out += identity
         return out
 
-
 def make_layer(sa_type, block, planes, blocks, kernel_size=7, stride=1):
     layers = []
     for _ in range(0, blocks):
@@ -87,10 +88,10 @@ def make_layer(sa_type, block, planes, blocks, kernel_size=7, stride=1):
 
 
 class SAN(nn.Module):
-    def __init__(self, sa_type, block, layers, kernels, num_classes, in_planes=3):
+    def __init__(self, sa_type, block, layers, kernels, num_classes, grayscale):
         super(SAN, self).__init__()
         c = 64
-        self.conv_in, self.bn_in = conv1x1(in_planes, c), nn.BatchNorm2d(c)
+        self.conv_in, self.bn_in = conv1x1(1 if grayscale else 3, c), nn.BatchNorm2d(c)
         self.conv0, self.bn0 = conv1x1(c, c), nn.BatchNorm2d(c)
         self.layer0 = make_layer(sa_type, block, c, layers[0], kernels[0])
 
@@ -115,6 +116,8 @@ class SAN(nn.Module):
         self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
         self.fc = nn.Linear(c, num_classes)
 
+        init_weights(self)
+
     def forward(self, x):
         x = self.relu(self.bn_in(self.conv_in(x)))
         x = self.relu(self.bn0(self.layer0(self.conv0(self.pool(x)))))
@@ -128,9 +131,19 @@ class SAN(nn.Module):
         x = self.fc(x)
         return x
 
+class TransitionLayer(nn.Sequential):
+    def __init__(self, inplanes: int, outplanes: int) -> None:
+        transition = [nn.BatchNorm2d(inplanes),
+                      nn.ReLU(inplace=True),
+                      nn.MaxPool2d(kernel_size=2, stride=2),
+                      nn.Conv2d(inplanes, outplanes, kernel_size=1, stride=1, bias=False)]
+        init_weights(transition[0])
+        init_weights(transition[3])
+        super().__init__(*transition)
 
-def san(sa_type, layers, kernels, num_classes, in_planes=3):
-    model = SAN(sa_type, Bottleneck, layers, kernels, num_classes, in_planes)
+
+def san(sa_type, layers, kernels, num_classes, grayscale):
+    model = SAN(sa_type, Bottleneck, layers, kernels, num_classes, grayscale)
     return model
 
 

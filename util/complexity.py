@@ -7,7 +7,7 @@ import torch
 import torch.nn as nn
 
 import lib.sa as sa
-from glasses.nn.blocks import Conv2dPad
+import model.nl as nl
 
 
 def get_model_complexity_info(model, input_res, print_per_layer_stat=True, as_strings=True, input_constructor=None, ost=sys.stdout):
@@ -248,6 +248,17 @@ def aggregation_flops_counter_hook(module, input, output):
     output = output[0]
     module.__flops__ += int(np.prod(output.shape) * np.prod(module.kernel_size))
 
+def non_local_flops_counter_hook(module, input, output):
+    if module.dimension != 2 or module.mode != 'dot':
+        raise NotImplemented("Only 2D non-local blocks with dot mode supported.")
+    # only operations not acounted on other nn.Module types are dots products and aggregation.
+    output = output[0] # get any tensor from output batch, with dimensions CxHxW
+    height = output.shape[1]
+    width = output.shape[2]
+    sub_sample_factor = 4 if module.sub_sample else 1
+    dot_product_count = (height*width)**2 / sub_sample_factor * module.inter_channels # HW * (HW/4) * inter_channels when module.sub_sample is True
+    aggregation_count = (height*width)**2 / sub_sample_factor # HW * (HW/4) when module.sub_sample is True
+    module.__flops__ += dot_product_count + aggregation_count
 
 def deconv_flops_counter_hook(conv_module, input, output):
     # Can have multiple inputs, getting the first one
@@ -384,8 +395,8 @@ MODULES_MAPPING = {
     sa.modules.Subtraction: subtraction_flops_counter_hook,
     sa.modules.Subtraction2: subtraction2_flops_counter_hook,
     sa.modules.Aggregation: aggregation_flops_counter_hook,
-    # glasses blocks
-    Conv2dPad: conv_flops_counter_hook,
+    # NL
+    nl.NLBlockND: non_local_flops_counter_hook,
 }
 
 

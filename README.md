@@ -15,8 +15,8 @@ git clone https://github.com/FearsomeTuna/SAN.git
 cd SAN
 conda create -n torchEnv
 conda activate torchEnv
-conda install pytorch torchvision cupy cudatoolkit=10.2 tensorboardx pyyaml pandas -c pytorch -c conda-forge
-pip install opencv-python torchmetrics
+conda install pytorch torchvision cupy cudatoolkit=10.2 tensorboardx torchmetrics pyyaml pandas -c pytorch -c conda-forge
+pip install opencv-python
 ```
 </div>
 
