@@ -30,7 +30,7 @@ from util import config
 from util.util import AverageMeter, intersectionAndUnionGPU, cal_accuracy
 from util.dataset import PathsFileDataset, InMemoryDataset, pil_loader
 
-from torchmetrics import RetrievalMAP, RetrievalMRR
+from torchmetrics import RetrievalMAP, RetrievalMRR, RetrievalPrecision
 
 cv2.ocl.setUseOpenCL(False)
 cv2.setNumThreads(0)
@@ -155,6 +155,7 @@ def validate(test_loader, query_loader, model, score_fun):
     data_time = AverageMeter()
     mAP = RetrievalMAP(compute_on_step=False)
     mRR = RetrievalMRR(compute_on_step=False)
+    pAt10 = RetrievalPrecision(compute_on_step=False, k=10)
 
     model.eval()
     end = time.time()
@@ -183,6 +184,7 @@ def validate(test_loader, query_loader, model, score_fun):
             target = test_target.unsqueeze(1) == query_target.unsqueeze(0)            
             mAP(scores, target, indices)
             mRR(scores, target, indices)
+            pAt10(scores, target, indices)
 
         batch_time.update(time.time() - end)
         end = time.time()
@@ -195,10 +197,11 @@ def validate(test_loader, query_loader, model, score_fun):
                                                                         batch_time=batch_time))
     map_value = mAP.compute()
     mrr_value = mRR.compute()
+    pAt10_value = pAt10.compute()
 
-    logger.info('Val result: mAP/mRR {:.4f}/{:.4f}.'.format(map_value, mrr_value))
+    logger.info('Val result: mAP/mRR/P@10 {:.4f}/{:.4f}/{:.4f}.'.format(map_value, mrr_value, pAt10_value))
     logger.info('<<<<<<<<<<<<<<<<< End Evaluation <<<<<<<<<<<<<<<<<')
-    return map_value, mrr_value
+    return map_value, mrr_value, pAt10_value
 
 
 if __name__ == '__main__':
