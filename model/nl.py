@@ -170,7 +170,7 @@ def make_layer2D(blocks: int, inplanes: int, mode: str) -> nn.Sequential:
 
 class PureNonLocal2D(nn.Module):
     def __init__(self, layers: List[int], num_classes: int, grayscale: bool, mode: str) -> None:
-        # doesn't rely on convolutions other than 1x1, except for stem
+        # doesn't rely on convolutions other than 1x1
         super().__init__()
 
         assert len(layers) == 4
@@ -181,11 +181,10 @@ class PureNonLocal2D(nn.Module):
         self.mode = mode
 
         # stem
-        self.stem = nn.Conv2d(1 if self.grayscale else 3, self.inplanes, kernel_size=7, stride=2, padding=3,
-                              bias=False)
+        self.stem = san.conv1x1(1 if grayscale else 3, self.inplanes)
         init_weights(self.stem)
-
-        self.transition1 = san.TransitionLayer(self.inplanes, 256)
+        self.transition0 = san.TransitionLayer(self.inplanes, 64)
+        self.transition1 = san.TransitionLayer(64, 256)
         self.layer1 = make_layer2D(layers[0], 256, mode=self.mode)
         self.transition2 = san.TransitionLayer(256, 512)
         self.layer2 = make_layer2D(layers[1], 512, mode=self.mode)
@@ -204,6 +203,7 @@ class PureNonLocal2D(nn.Module):
     def forward(self, x: Tensor) -> Tensor:
         x = self.stem(x)
 
+        x = self.transition0(x)
         x = self.transition1(x)
         x = self.layer1(x)
         x = self.transition2(x)
