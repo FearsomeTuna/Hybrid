@@ -5,20 +5,21 @@ DATA:
   classes: 300
   mean: [0.1307]
   std: [0.3081]
-  channels: 1
+  grayscale: True
 
 TRAIN:
-  arch: san
-  sa_type: 0
-  layers: [2, 1, 2, 4, 1]
-  kernels: [3, 7, 7, 7, 7]
+  arch: hybrid
+  layer_types: [res, res, res, res]
+  widths: [256, 512, 1024, 2048]
+  layers: [1, 1, 2, 1]
+  added_nl_blocks: [0, 1, 2, 0]
   ignore_label: 2000
-  train_gpu: [0]
+  train_gpu: [0, 1]
   workers: 2
   batch_size: 64
   batch_size_val: 32
   base_lr: 0.1
-  epochs: 20
+  epochs: 40
   start_epoch: 0
   step_epochs: [30, 60, 90]
   label_smoothing: 0.1
@@ -29,14 +30,14 @@ TRAIN:
   manual_seed:
   print_freq: 10
   save_freq: 1
-  save_path: exp/mini_quickdraw/san10_pairwise/model
+  save_path: exp/mini_quickdraw/resnet26_nl/model
   weight:
   resume:
   evaluate: True
 Distributed:
   dist_url: tcp://127.0.0.1:6789
   dist_backend: 'nccl'
-  multiprocessing_distributed: False
+  multiprocessing_distributed: True
   world_size: 1
   rank: 0
 
@@ -45,4 +46,4 @@ TEST:
   test_gpu: [0]
   test_workers: 2
   batch_size_test: 100
-  model_path: exp/mini_quickdraw/san10_pairwise/model/model_best.pth
+  model_path: exp/mini_quickdraw/resnet26_nl/model/model_best.pth

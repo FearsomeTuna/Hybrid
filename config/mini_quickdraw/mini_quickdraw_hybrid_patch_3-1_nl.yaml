@@ -8,8 +8,12 @@ DATA:
   grayscale: True
 
 TRAIN:
-  arch: resnet
-  layers: [1, 2, 4, 1]
+  arch: hybrid
+  layer_types: [res, res, res, san]
+  sa_type: 1
+  widths: [256, 512, 1024, 2048]
+  layers: [1, 1, 2, 1]
+  added_nl_blocks: [0, 1, 2, 0]
   ignore_label: 2000
   train_gpu: [0, 1]
   workers: 2
@@ -27,7 +31,7 @@ TRAIN:
   manual_seed:
   print_freq: 10
   save_freq: 1
-  save_path: exp/mini_quickdraw/resnet26/model
+  save_path: exp/mini_quickdraw/hybrid_patch_3-1_nl/model
   weight:
   resume:
   evaluate: True
@@ -43,4 +47,4 @@ TEST:
   test_gpu: [0]
   test_workers: 2
   batch_size_test: 100
-  model_path: exp/mini_quickdraw/resnet26/model/model_best.pth
+  model_path: exp/mini_quickdraw/hybrid_patch_3-1_nl/model/model_best.pth

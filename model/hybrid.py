@@ -39,7 +39,7 @@ class MixedModel(nn.Module):
 
         SAN and non-local stages are preceded by transition layers that reduce spatial resolution to half, and can expand channels.
         Each stage reduces resolution to half, except when the first stage is resnet, in which case resolution is kept the same.
-        San kernels are all 7x7, except if first stage is san based, in which case kernel is 3x3 (following SAN original design).
+        San kernels are all 7x7, except in first stage, in which case kernel is 3x3 (following SAN original design).
         Batchnorm and ReLU are added after last stage if that last stage is san or nl based (following SAN original implementation).
 
         Both resnet and san stems output 64 channels. Additionally, ResNet stem reduces spatial resolution to 1/4 (224x224 to 56x56).
