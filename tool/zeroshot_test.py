@@ -23,45 +23,18 @@ import torch.distributed as dist
 
 
 from model.san import san
-from model.hybrid import hybrid
+from model.hybrid import MixedModel
 from model.resnet import resnet
+from model.nl import PureNonLocal2D
 
 from util import config
-from util.util import AverageMeter, intersectionAndUnionGPU, cal_accuracy
+from util.util import AverageMeter, intersectionAndUnionGPU, cal_accuracy, combination_cosine_distance
 from util.dataset import PathsFileDataset, InMemoryDataset, pil_loader
 
 from torchmetrics import RetrievalMAP, RetrievalMRR, RetrievalPrecision
 
 cv2.ocl.setUseOpenCL(False)
 cv2.setNumThreads(0)
-
-def get_activation(mode):
-    def hook(model, input, output):
-        if mode == 'input':
-            value = input[0]
-        elif mode == 'output':
-            value = output
-        global activation
-        activation = value.detach()
-    return hook
-
-def combination_cosine_distance(mat1, mat2):
-    """Calculates cosine similarity between every vector of mat1 and every vector of mat2.
-
-    If vectors are of length f, then input dimensions must be (N, f) and (M, f), where N and M > 0, and result will be a tensor of dimensions (N, M).
-    If result = bipartite_cosine_distance(mat1, mat2), then result[i,j] is roughly equivalent to the value held by tensor
-    torch.nn.functional.cosine_similarity(mat1[i].unsqueeze(0), mat2[j].unsqueeze(0)) for every position i, j.
-
-    Args:
-        mat1 (torch.tensor): first input
-        mat2 (torch.tensor): second input
-
-    Returns:
-        torch.tensor: tensor with cosine distance results for every pairwise combination of vectors from mat1 to mat2.
-    """
-    mat1 = F.normalize(mat1)
-    mat2 = F.normalize(mat2)
-    return torch.mm(mat1, torch.transpose(mat2, 0, 1))
 
 def get_parser():
     parser = argparse.ArgumentParser(description='PyTorch Semantic Segmentation')
@@ -96,18 +69,14 @@ def main():
     logger.info("Classes: {}".format(args.classes))
     os.environ["CUDA_VISIBLE_DEVICES"] = ','.join(str(x) for x in args.test_gpu)
 
-    n_channels = 3
-    if args.channels: n_channels = args.channels
-
     if (args.arch == 'resnet'): # resnet
-        model = resnet(args.layers, args.widths, args.classes, n_channels)
-        model.head.flat.register_forward_hook(get_activation('output'))
+        model = resnet(args.layers, args.classes, args.grayscale)
     elif args.arch == 'san': # SAN
-        model = san(args.sa_type, args.layers, args.kernels, args.classes, in_planes=n_channels)
-        model.fc.register_forward_hook(get_activation('input'))
+        model = san(args.sa_type, args.layers, args.kernels, args.classes, args.grayscale)
+    elif args.arch == 'nl':
+        model = PureNonLocal2D(args.layers, args.classes, args.grayscale, 'dot')
     elif args.arch == 'hybrid':
-        model = hybrid(args.sa_type, args.layers, args.widths, args.kernels, args.classes, in_planes=n_channels)
-        model.fc.register_forward_hook(get_activation('input'))
+        model = MixedModel(args.layers, args.layer_types, args.widths, args.grayscale, args.classes, args.layer_types[0], args.sa_type if 'san' in args.layer_types else None, args.added_nl_blocks)
     
     logger.info(model)
     model = torch.nn.DataParallel(model.cuda())
@@ -164,15 +133,14 @@ def validate(test_loader, query_loader, model, score_fun):
         data_time.update(time.time() - end)
         test_input = test_input.cuda(non_blocking=True)
         test_target = test_target.cuda(non_blocking=True)
+        with torch.no_grad():
+            test_embeding = model(test_input, getFeatVec=True)
         start_query_index = 0 
         for j, (query_input, query_target) in enumerate(query_loader):
             query_input = query_input.cuda(non_blocking=True)
             query_target = query_target.cuda(non_blocking=True)                     
             with torch.no_grad():
-                model(query_input)
-                query_embeding = activation
-                model(test_input)
-                test_embeding = activation
+                query_embeding = model(query_input, getFeatVec=True)                
             scores = score_fun(test_embeding, query_embeding)
 
             query_batchsize = list(query_embeding.size())[0]

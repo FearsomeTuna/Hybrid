@@ -118,7 +118,7 @@ class SAN(nn.Module):
 
         init_weights(self)
 
-    def forward(self, x):
+    def forward(self, x, getFeatVec = False):
         x = self.relu(self.bn_in(self.conv_in(x)))
         x = self.relu(self.bn0(self.layer0(self.conv0(self.pool(x)))))
         x = self.relu(self.bn1(self.layer1(self.conv1(self.pool(x)))))
@@ -128,6 +128,8 @@ class SAN(nn.Module):
 
         x = self.avgpool(x)
         x = x.view(x.size(0), -1)
+        if getFeatVec:
+            return x.detach()
         x = self.fc(x)
         return x
 

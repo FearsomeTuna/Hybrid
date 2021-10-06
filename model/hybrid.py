@@ -115,12 +115,14 @@ class MixedModel(nn.Module):
         self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
         self.fc = nn.Linear(widths[-1], num_classes)
     
-    def forward(self, x: Tensor) -> Tensor:
+    def forward(self, x: Tensor, getFeatVec: bool = False) -> Tensor:
         x = self.stem(x)
         x = self.backbone(x)
 
         x = self.avgpool(x)
         x = x.view(x.size(0), -1)
+        if getFeatVec:
+            return x.detach()
         x = self.fc(x)
         return x
 

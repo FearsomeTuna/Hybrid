@@ -200,7 +200,7 @@ class PureNonLocal2D(nn.Module):
         self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
         self.fc = nn.Linear(2048, num_classes)
 
-    def forward(self, x: Tensor) -> Tensor:
+    def forward(self, x: Tensor, getFeatVec: bool = False) -> Tensor:
         x = self.stem(x)
 
         x = self.transition0(x)
@@ -218,5 +218,7 @@ class PureNonLocal2D(nn.Module):
 
         x = self.avgpool(x)
         x = x.view(x.size(0), -1)
+        if getFeatVec:
+            return x.detach()
         x = self.fc(x)
         return x

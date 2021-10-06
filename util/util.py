@@ -203,3 +203,21 @@ def init_weights(model):
             elif isinstance(m, (nn.BatchNorm2d, nn.GroupNorm)):
                 nn.init.constant_(m.weight, 1)
                 nn.init.constant_(m.bias, 0)
+
+def combination_cosine_distance(mat1, mat2):
+    """Calculates cosine similarity between every vector of mat1 and every vector of mat2.
+
+    If vectors are of length f, then input dimensions must be (N, f) and (M, f), where N and M > 0, and result will be a tensor of dimensions (N, M).
+    If result = bipartite_cosine_distance(mat1, mat2), then result[i,j] is roughly equivalent to the value held by tensor
+    torch.nn.functional.cosine_similarity(mat1[i].unsqueeze(0), mat2[j].unsqueeze(0)) for every position i, j.
+
+    Args:
+        mat1 (torch.tensor): first input
+        mat2 (torch.tensor): second input
+
+    Returns:
+        torch.tensor: tensor with cosine distance results for every pairwise combination of vectors from mat1 to mat2.
+    """
+    mat1 = F.normalize(mat1)
+    mat2 = F.normalize(mat2)
+    return torch.mm(mat1, torch.transpose(mat2, 0, 1))
