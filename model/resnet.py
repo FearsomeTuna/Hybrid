@@ -14,6 +14,24 @@ class ResNet(torchres.ResNet):
         self.conv1 = nn.Conv2d(1 if self.grayscale else 3, inplanes, kernel_size=7, stride=2, padding=3,
                                bias=False)
         nn.init.kaiming_normal_(self.conv1.weight, mode='fan_out', nonlinearity='relu')
+    
+    def forward(self, x: Tensor, getFeatVec: bool=False) -> Tensor:
+        x = self.conv1(x)
+        x = self.bn1(x)
+        x = self.relu(x)
+        x = self.maxpool(x)
+
+        x = self.layer1(x)
+        x = self.layer2(x)
+        x = self.layer3(x)
+        x = self.layer4(x)
+
+        x = self.avgpool(x)
+        x = torch.flatten(x, 1)
+        if getFeatVec:
+            return x.detach()
+        x = self.fc(x)
+        return x
 
 class Bottleneck(torchres.Bottleneck):
     # Bottleneck in torchvision places the stride for downsampling at 3x3 convolution(self.conv2)
