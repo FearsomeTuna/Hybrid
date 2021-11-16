@@ -129,7 +129,7 @@ class SAN(nn.Module):
         x = self.avgpool(x)
         x = x.view(x.size(0), -1)
         if getFeatVec:
-            return x.detach()
+            return x
         x = self.fc(x)
         return x
 

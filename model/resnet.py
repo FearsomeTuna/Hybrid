@@ -24,7 +24,7 @@ class ResNet(torchres.ResNet):
         x = self.avgpool(x)
         x = torch.flatten(x, 1)
         if getFeatVec:
-            return x.detach()
+            return x
         x = self.fc(x)
         return x
 

@@ -158,7 +158,7 @@ class NLBlockND(nn.Module):
         z = W_y + x
 
         return z
-        
+
 class NLLayer2D(nn.Sequential):
     def __init__(self, blocks: int, inplanes: int, mode: str) -> None:
         layer = []
@@ -219,6 +219,6 @@ class PureNonLocal2D(nn.Module):
         x = self.avgpool(x)
         x = x.view(x.size(0), -1)
         if getFeatVec:
-            return x.detach()
+            return x
         x = self.fc(x)
         return x
