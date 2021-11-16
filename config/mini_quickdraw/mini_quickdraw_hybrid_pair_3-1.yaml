@@ -1,21 +1,25 @@
 DATA:
-  data_root: dataset/Sketch_EITZ
+  data_root: dataset/miniQuickDraw
   dataset_init: preprocessed_paths
-  data_name: sketch_eitz
-  classes: 250
+  data_name: mini_quickdraw
+  classes: 300
   mean: [0.1307]
   std: [0.3081]
 
 TRAIN:
-  arch: nl
-  layers: [3, 2, 4, 1]
+  arch: hybrid
+  layer_types: [res, res, res, san]
+  sa_type: 0
+  widths: [256, 512, 1024, 2048]
+  layers: [1, 2, 4, 1]
+  added_nl_blocks: [0, 0, 0, 0]
   ignore_label: 2000
   train_gpu: [0, 1]
   workers: 2
   batch_size: 64
   batch_size_val: 32
   base_lr: 0.1
-  epochs: 100
+  epochs: 40
   start_epoch: 0
   step_epochs: [30, 60, 90]
   label_smoothing: 0.1
@@ -26,7 +30,7 @@ TRAIN:
   manual_seed:
   print_freq: 10
   save_freq: 1
-  save_path: exp/sketch_eitz/nl/model
+  save_path: exp/mini_quickdraw/hybrid_pair_3-1/model
   weight:
   resume:
   evaluate: True
@@ -42,4 +46,4 @@ TEST:
   test_gpu: [0]
   test_workers: 2
   batch_size_test: 100
-  model_path: exp/sketch_eitz/nl/model/model_best.pth
+  model_path: exp/mini_quickdraw/hybrid_pair_3-1/model/model_best.pth

@@ -7,13 +7,8 @@ import torchvision.models.resnet as torchres
 from util.util import init_weights
 
 class ResNet(torchres.ResNet):
-    def __init__(self, layers: List[int], num_classes: int = 1000, grayscale: bool = True) -> None:
+    def __init__(self, layers: List[int], num_classes: int = 1000) -> None:
         super().__init__(torchres.Bottleneck, layers, num_classes=num_classes)
-        self.grayscale = grayscale
-        inplanes = 64
-        self.conv1 = nn.Conv2d(1 if self.grayscale else 3, inplanes, kernel_size=7, stride=2, padding=3,
-                               bias=False)
-        nn.init.kaiming_normal_(self.conv1.weight, mode='fan_out', nonlinearity='relu')
     
     def forward(self, x: Tensor, getFeatVec: bool=False) -> Tensor:
         x = self.conv1(x)
@@ -49,6 +44,6 @@ class Bottleneck(torchres.Bottleneck):
         super().__init__(inplanes, planes, stride=stride, downsample=downsample, groups=groups, base_width=base_width, dilation=dilation, norm_layer=norm_layer)
         init_weights(self)
 
-def resnet(layers, num_classes, grayscale):
-    model = ResNet(layers=layers, num_classes=num_classes, grayscale=grayscale)
+def resnet(layers, num_classes):
+    model = ResNet(layers=layers, num_classes=num_classes)
     return model

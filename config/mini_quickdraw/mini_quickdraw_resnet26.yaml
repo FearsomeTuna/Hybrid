@@ -1,11 +1,10 @@
 DATA:
   data_root: dataset/miniQuickDraw
-  dataset_init: byte_imgs
+  dataset_init: preprocessed_paths
   data_name: mini_quickdraw
   classes: 300
   mean: [0.1307]
   std: [0.3081]
-  grayscale: True
 
 TRAIN:
   arch: resnet

@@ -28,8 +28,8 @@ from model.resnet import resnet
 from model.nl import PureNonLocal2D
 
 from util import config
-from util.util import AverageMeter, intersectionAndUnionGPU, cal_accuracy, combination_cosine_distance
-from util.dataset import PathsFileDataset, InMemoryDataset, pil_loader
+from util.util import AverageMeter, combination_cosine_distance
+from util.dataset import PathsFileDataset
 
 from torchmetrics import RetrievalMAP, RetrievalMRR, RetrievalPrecision
 
@@ -70,13 +70,13 @@ def main():
     os.environ["CUDA_VISIBLE_DEVICES"] = ','.join(str(x) for x in args.test_gpu)
 
     if (args.arch == 'resnet'): # resnet
-        model = resnet(args.layers, args.classes, args.grayscale)
+        model = resnet(args.layers, args.classes)
     elif args.arch == 'san': # SAN
-        model = san(args.sa_type, args.layers, args.kernels, args.classes, args.grayscale)
+        model = san(args.sa_type, args.layers, args.kernels, args.classes)
     elif args.arch == 'nl':
-        model = PureNonLocal2D(args.layers, args.classes, args.grayscale, 'dot')
+        model = PureNonLocal2D(args.layers, args.classes, 'dot')
     elif args.arch == 'hybrid':
-        model = MixedModel(args.layers, args.layer_types, args.widths, args.grayscale, args.classes, args.layer_types[0], args.sa_type if 'san' in args.layer_types else None, args.added_nl_blocks)
+        model = MixedModel(args.layers, args.layer_types, args.widths, args.classes, args.layer_types[0], args.sa_type if 'san' in args.layer_types else None, args.added_nl_blocks)
     
     logger.info(model)
     model = torch.nn.DataParallel(model.cuda())
@@ -93,10 +93,7 @@ def main():
     if args.mean: mean = args.mean
     if args.std: std = args.std
 
-    if args.dataset_init == 'byte_imgs':
-        test_transform = transforms.Compose([transforms.ToTensor(), transforms.Normalize(mean, std)])
-    else:
-        test_transform = transforms.Compose([transforms.Resize(256), transforms.CenterCrop(224), transforms.ToTensor(), transforms.Normalize(mean, std)])
+    test_transform = transforms.Compose([transforms.Resize(256), transforms.CenterCrop(224), transforms.ToTensor(), transforms.Normalize(mean, std)])
 
     test_name = 'zeroshot_test'
     query_name = 'zeroshot_queries'
@@ -104,11 +101,8 @@ def main():
         test_set = PathsFileDataset(args.data_root, test_name + '_init.pt', transform=test_transform)
         query_set = PathsFileDataset(args.data_root, query_name + '_init.pt', transform=test_transform)
     elif args.dataset_init == 'image_folder':
-        test_set = torchvision.datasets.ImageFolder(os.path.join(args.data_root, test_name), test_transform, loader=pil_loader)
-        query_set = torchvision.datasets.ImageFolder(os.path.join(args.data_root, query_name), test_transform, loader=pil_loader)
-    elif args.dataset_init == 'byte_imgs':
-        test_set = InMemoryDataset(os.path.join(args.data_root, test_name + '_imgs.pt'), test_transform)
-        query_set = InMemoryDataset(os.path.join(args.data_root, query_name + '_imgs.pt'), test_transform)
+        test_set = torchvision.datasets.ImageFolder(os.path.join(args.data_root, test_name), test_transform)
+        query_set = torchvision.datasets.ImageFolder(os.path.join(args.data_root, query_name), test_transform)
     else:
         raise ValueError("Invalid value for dataset_init config argument.")
     

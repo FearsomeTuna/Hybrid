@@ -34,13 +34,13 @@ with torch.cuda.device(0):
       args = config.load_cfg_from_cfg_file(config_file)
 
       if (args.arch == 'resnet'): # resnet
-          model = resnet(args.layers, args.classes, args.grayscale)
+          model = resnet(args.layers, args.classes)
       elif args.arch == 'san': # SAN
-          model = san(args.sa_type, args.layers, args.kernels, args.classes, args.grayscale)
+          model = san(args.sa_type, args.layers, args.kernels, args.classes)
       elif args.arch == 'nl':
-          model = PureNonLocal2D(args.layers, args.classes, args.grayscale, 'dot')
+          model = PureNonLocal2D(args.layers, args.classes, 'dot')
       elif args.arch == 'hybrid':
-          model = MixedModel(args.layers, args.layer_types, args.widths, args.grayscale, args.classes, args.layer_types[0], args.sa_type if 'san' in args.layer_types else None, args.added_nl_blocks)
+          model = MixedModel(args.layers, args.layer_types, args.widths, args.classes, args.layer_types[0], args.sa_type if 'san' in args.layer_types else None, args.added_nl_blocks)
 
-      flops, params = get_model_complexity_info(model.cuda(), (1 if args.grayscale else 3, 224, 224), as_strings=True, print_per_layer_stat=print_model)
+      flops, params = get_model_complexity_info(model.cuda(), (3, 224, 224), as_strings=True, print_per_layer_stat=print_model)
       print('ConfigFile: {}.\nParams/Flops: {}/{}\n'.format(config_file, params, flops))

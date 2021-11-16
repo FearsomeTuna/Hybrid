@@ -1,11 +1,10 @@
 DATA:
   data_root: dataset/Sketch_EITZ
-  dataset_init: byte_imgs
+  dataset_init: preprocessed_paths
   data_name: sketch_eitz
   classes: 250
   mean: [0.1307]
   std: [0.3081]
-  grayscale: True
 
 TRAIN:
   arch: resnet

@@ -88,10 +88,10 @@ def make_layer(sa_type, block, planes, blocks, kernel_size=7, stride=1):
 
 
 class SAN(nn.Module):
-    def __init__(self, sa_type, block, layers, kernels, num_classes, grayscale):
+    def __init__(self, sa_type, block, layers, kernels, num_classes):
         super(SAN, self).__init__()
         c = 64
-        self.conv_in, self.bn_in = conv1x1(1 if grayscale else 3, c), nn.BatchNorm2d(c)
+        self.conv_in, self.bn_in = conv1x1(3, c), nn.BatchNorm2d(c)
         self.conv0, self.bn0 = conv1x1(c, c), nn.BatchNorm2d(c)
         self.layer0 = make_layer(sa_type, block, c, layers[0], kernels[0])
 
@@ -144,8 +144,8 @@ class TransitionLayer(nn.Sequential):
         super().__init__(*transition)
 
 
-def san(sa_type, layers, kernels, num_classes, grayscale):
-    model = SAN(sa_type, Bottleneck, layers, kernels, num_classes, grayscale)
+def san(sa_type, layers, kernels, num_classes):
+    model = SAN(sa_type, Bottleneck, layers, kernels, num_classes)
     return model
 
 

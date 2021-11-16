@@ -28,7 +28,7 @@ from model.nl import PureNonLocal2D
 
 from util import config
 from util.util import AverageMeter, intersectionAndUnionGPU, find_free_port, mixup_data, mixup_loss, smooth_loss, cal_accuracy
-from util.dataset import PathsFileDataset, InMemoryDataset, pil_loader
+from util.dataset import PathsFileDataset
 
 cv2.ocl.setUseOpenCL(False)
 cv2.setNumThreads(0)
@@ -105,13 +105,13 @@ def main_worker(gpu, ngpus_per_node, argss):
         dist.init_process_group(backend=args.dist_backend, init_method=args.dist_url, world_size=args.world_size, rank=args.rank)
 
     if (args.arch == 'resnet'): # resnet
-        model = resnet(args.layers, args.classes, args.grayscale)
+        model = resnet(args.layers, args.classes)
     elif args.arch == 'san': # SAN
-        model = san(args.sa_type, args.layers, args.kernels, args.classes, args.grayscale)
+        model = san(args.sa_type, args.layers, args.kernels, args.classes)
     elif args.arch == 'nl':
-        model = PureNonLocal2D(args.layers, args.classes, args.grayscale, 'dot')
+        model = PureNonLocal2D(args.layers, args.classes, 'dot')
     elif args.arch == 'hybrid':
-        model = MixedModel(args.layers, args.layer_types, args.widths, args.grayscale, args.classes, args.layer_types[0], args.sa_type if 'san' in args.layer_types else None, args.added_nl_blocks)
+        model = MixedModel(args.layers, args.layer_types, args.widths, args.classes, args.layer_types[0], args.sa_type if 'san' in args.layer_types else None, args.added_nl_blocks)
     
     total_params = sum(p.numel() for p in model.parameters())
     total_params_trainable = sum(p.numel() for p in model.parameters() if p.requires_grad)
@@ -175,21 +175,15 @@ def main_worker(gpu, ngpus_per_node, argss):
     if args.std: std = args.std
 
     train_transform = transforms.Compose([transforms.RandomResizedCrop(224), transforms.RandomHorizontalFlip(), transforms.ToTensor(), transforms.Normalize(mean, std)])
-    if args.dataset_init == 'byte_imgs':
-        val_transform = transforms.Compose([transforms.ToTensor(), transforms.Normalize(mean, std)])
-    else:
     val_transform = transforms.Compose([transforms.Resize(256), transforms.CenterCrop(224), transforms.ToTensor(), transforms.Normalize(mean, std)])
 
     if args.dataset_init == 'preprocessed_paths':
         train_set = PathsFileDataset(args.data_root, 'train_init.pt', transform=train_transform)
         val_set = PathsFileDataset(args.data_root, 'val_init.pt', transform=val_transform)
     elif args.dataset_init == 'image_folder':
-        train_set = torchvision.datasets.ImageFolder(os.path.join(args.data_root, 'train'), train_transform, loader=pil_loader)
-        val_set = torchvision.datasets.ImageFolder(os.path.join(args.data_root, 'val'), val_transform, loader=pil_loader)
-    elif args.dataset_init == 'byte_imgs':
-        train_set = InMemoryDataset(os.path.join(args.data_root, 'train_imgs.pt'), train_transform)
-        val_set = InMemoryDataset(os.path.join(args.data_root, 'val_imgs.pt'), val_transform)
-        else:
+        train_set = torchvision.datasets.ImageFolder(os.path.join(args.data_root, 'train'), train_transform)
+        val_set = torchvision.datasets.ImageFolder(os.path.join(args.data_root, 'val'), val_transform)
+    else:
         raise ValueError("Invalid value for dataset_init config argument.")
 
     if args.distributed:

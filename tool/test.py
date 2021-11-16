@@ -1,24 +1,17 @@
 import os
-import random
 import time
 import cv2
 import numpy as np
 import logging
 import argparse
-import shutil
-
-from PIL import Image
 
 import torch
-import torch.backends.cudnn as cudnn
 import torch.nn as nn
 import torch.nn.parallel
 import torch.optim
 import torch.utils.data
 import torchvision
 import torchvision.transforms as transforms
-import torch.multiprocessing as mp
-import torch.distributed as dist
 
 from model.san import san
 from model.hybrid import MixedModel
@@ -27,7 +20,7 @@ from model.nl import PureNonLocal2D
 
 from util import config
 from util.util import AverageMeter, intersectionAndUnionGPU, cal_accuracy
-from util.dataset import PathsFileDataset, InMemoryDataset, pil_loader
+from util.dataset import PathsFileDataset
 
 cv2.ocl.setUseOpenCL(False)
 cv2.setNumThreads(0)
@@ -67,13 +60,13 @@ def main():
     os.environ["CUDA_VISIBLE_DEVICES"] = ','.join(str(x) for x in args.test_gpu)
 
     if (args.arch == 'resnet'): # resnet
-        model = resnet(args.layers, args.classes, args.grayscale)
+        model = resnet(args.layers, args.classes)
     elif args.arch == 'san': # SAN
-        model = san(args.sa_type, args.layers, args.kernels, args.classes, args.grayscale)
+        model = san(args.sa_type, args.layers, args.kernels, args.classes)
     elif args.arch == 'nl':
-        model = PureNonLocal2D(args.layers, args.classes, args.grayscale, 'dot')
+        model = PureNonLocal2D(args.layers, args.classes, 'dot')
     elif args.arch == 'hybrid':
-        model = MixedModel(args.layers, args.layer_types, args.widths, args.grayscale, args.classes, args.layer_types[0], args.sa_type if 'san' in args.layer_types else None, args.added_nl_blocks)
+        model = MixedModel(args.layers, args.layer_types, args.widths, args.classes, args.layer_types[0], args.sa_type if 'san' in args.layer_types else None, args.added_nl_blocks)
     
     logger.info(model)
     model = torch.nn.DataParallel(model.cuda())
@@ -91,18 +84,13 @@ def main():
     if args.mean: mean = args.mean
     if args.std: std = args.std
 
-    if args.dataset_init == 'byte_imgs':
-        test_transform = transforms.Compose([transforms.ToTensor(), transforms.Normalize(mean, std)])
-    else:
-        test_transform = transforms.Compose([transforms.Resize(256), transforms.CenterCrop(224), transforms.ToTensor(), transforms.Normalize(mean, std)])
+    test_transform = transforms.Compose([transforms.Resize(256), transforms.CenterCrop(224), transforms.ToTensor(), transforms.Normalize(mean, std)])
 
     folder_name = 'val' if args.use_val_set else 'test'
     if args.dataset_init == 'preprocessed_paths':
         test_set = PathsFileDataset(args.data_root, folder_name + '_init.pt', transform=test_transform)
     elif args.dataset_init == 'image_folder':
-        test_set = torchvision.datasets.ImageFolder(os.path.join(args.data_root, folder_name), test_transform, loader=pil_loader)
-    elif args.dataset_init == 'byte_imgs':
-        test_set = InMemoryDataset(os.path.join(args.data_root, folder_name + '_imgs.pt'), test_transform)
+        test_set = torchvision.datasets.ImageFolder(os.path.join(args.data_root, folder_name), test_transform)
     else:
         raise ValueError("Invalid value for dataset_init config argument.")
     

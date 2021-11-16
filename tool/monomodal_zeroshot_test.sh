@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 ## uncomment for slurm
 ##SBATCH -p quadro
@@ -18,9 +18,9 @@ result_dir=${exp_dir}/result
 config=config/${dataset}/${dataset}_${exp_name}.yaml
 now=$(date +"%Y%m%d_%H%M%S")
 
-cp tool/zeroshot_test.sh tool/zeroshot_test.py ${config} ${exp_dir}
+cp tool/monomodal_zeroshot_test.sh tool/monomodal_zeroshot_test.py ${config} ${exp_dir}
 
 export PYTHONPATH=./
-$PYTHON -u ${exp_dir}/zeroshot_test.py \
+$PYTHON -u ${exp_dir}/monomodal_zeroshot_test.py \
   --config=${config} \
-  2>&1 | tee ${result_dir}/zeroshot_test-$now.log
+  2>&1 | tee ${result_dir}/monomodal_zeroshot_test-$now.log

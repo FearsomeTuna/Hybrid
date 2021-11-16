@@ -5,17 +5,13 @@ DATA:
   # - image_folder: initializes using torchvision.datasets.ImageFolder. Expects folders 'train', 'val', and possibly 'test'
   # - preprocessed_paths: initialized from custom object file (see torch.save) with images paths and classes. See util.dataset.PathsFileDataset. 
   # Expects files named 'train_init.pt', 'val_init.pt' and possibly 'test_init.pt'.
-  # - byte_imgs: initialized from custom object file (see torch.save) containing io.BytesIO representing
-  # images. Expects files named 'train_imgs.pt', 'val_imgs.pt' and possibly 'test_imgs.pt'.
-  # Transforms for train set (grayscale and random augmentations) will be performed at runtime.
+  # Transforms for train set (random augmentations) will be performed at runtime.
   # Transforms performed on val set are resize to 256x256 followed by center crop (224x224).
   dataset_init: image_folder
   # data_name: seemingly unused
   data_name: imagenet
   # classes: number of classes
   classes: 1000
-  # grayscale: whether images are grayscale (1 channel).
-  grayscale: False
   # mean: dataset mean for each input channel, defaults to imagenet values if not defined.
   mean: [0.485, 0.456, 0.406]
   # std: dataset standard deviation for each input channel, defaults to imagenet values if not defined.

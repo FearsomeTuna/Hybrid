@@ -28,7 +28,6 @@ Prior to training, datasets must be already split and organized in 'train', 'val
 
 1. 'train' and 'val' folders with images grouped into subclasses (same as pytorch's torchvision.datasets.ImageFolder requires).
 2. Custom 'train_init.pt' and 'val_init.pt' files with list of predefined (image_path, target_class) tuples. This can be achieved with make_dataset_path.py and split_dataset.py utilities.
-3. Custom 'train_imgs.pt' and 'val_imgs.pt' files with byte images ready to be loaded whole into memory. This can be achieved with make_inmemory_dataset.py utility (which takes custom paths file as input).
 
 These custom files are based on torch.save and torch.load functions.
 
@@ -42,7 +41,7 @@ Dataset organization must be declared in config file for correct dataset import 
 
 Sketch_EITZ dataset (better known as TU_Berlin in the literature) can be found [here](http://cybertron.cg.tu-berlin.de/eitz/projects/classifysketch/), though for our purposes, we use a lower size version found on [this](https://github.com/jmsaavedrar/convnet2) repo.
 
-Here we show the second and third ways described in <a href='#preparation'>Dataset preparation</a>. The following script generates custom files with path information and also custom byte image files from TU_Berlin dataset, saving them to folders within `SAN/dataset` folder. To run generic python files inside conda environment, we use `run_env.sh` script. This just activates conda environment and passes remaining arguments to python file:
+Here we show the second way described in <a href='#preparation'>Dataset preparation</a>. The following script generates custom files with path information from TU_Berlin dataset, saving them to folders within `SAN/dataset` folder. To run generic python files inside conda environment, we use `run_env.sh` script. This just activates conda environment and passes remaining arguments to python file:
 
 ```shell
 # downloaded file: EITZ.zip from second link
@@ -60,18 +59,14 @@ mv dataset/Sketch_EITZ/png_w256 dataset/Sketch_EITZ/data
 # conda environment must be correctly setup to run utilities
 
 # first we make paths file. Last 3 arguments are input folder (images), output folder for generated file, and output filename.
-sh tool/run_env.sh tool/dataset_tool/make_dataset_paths.py dataset/Sketch_EITZ/data dataset/Sketch_EITZ data_init.pt
+bash tool/run_env.sh tool/dataset_tool/make_dataset_paths.py dataset/Sketch_EITZ/data dataset/Sketch_EITZ data_init.pt
 
 # take dataset/Sketch_EITZ/data_init.pt info and split it in two sets according to 0.8 and 0.2 ratios. Output to dataset/Sketch_EITZ
-sh tool/run_env.sh tool/dataset_tool/split_dataset.py dataset/Sketch_EITZ/data_init.pt dataset/Sketch_EITZ -r 0.8
+bash tool/run_env.sh tool/dataset_tool/split_dataset.py dataset/Sketch_EITZ/data_init.pt dataset/Sketch_EITZ -r 0.8
 
 # rename output files
 mv dataset/Sketch_EITZ/split_0.pt dataset/Sketch_EITZ/train_init.pt
 mv dataset/Sketch_EITZ/split_1.pt dataset/Sketch_EITZ/val_init.pt
-
-# make inmemory versions
-sh tool/run_env.sh tool/dataset_tool/make_inmemory_dataset.py dataset/Sketch_EITZ/train_init.pt dataset/Sketch_EITZ/train_imgs.pt -t train
-sh tool/run_env.sh tool/dataset_tool/make_inmemory_dataset.py dataset/Sketch_EITZ/val_init.pt dataset/Sketch_EITZ/val_imgs.pt -t val
 
 rm dataset/Sketch_EITZ/data_init.pt
 ```
@@ -84,30 +79,24 @@ SAN_ROOT="/path/to/SAN"
 cd $SAN_ROOT
 
 # we suppose 'dataset' dir is already created, as per the previous script example
-sh tool/run_env.sh tool/dataset_tool/make_dataset_paths.py $QUICKDRAW_PATH dataset/quickDraw data_init.pt
+bash tool/run_env.sh tool/dataset_tool/make_dataset_paths.py $QUICKDRAW_PATH dataset/quickDraw data_init.pt
 
 # subsample 1000 images per class from 300 classes
-sh tool/run_env.sh tool/dataset_tool/sub_sample.py dataset/quickDraw/data_init.pt dataset/miniQuickDraw/data_init.pt -n 1000 -c 300
+bash tool/run_env.sh tool/dataset_tool/sub_sample.py dataset/quickDraw/data_init.pt dataset/miniQuickDraw/data_init.pt -n 1000 -c 300
 # split the 300 class subsample into train and val sets
-sh tool/run_env.sh tool/dataset_tool/split_dataset.py dataset/miniQuickDraw/data_init.pt dataset/miniQuickDraw -r 0.8
+bash tool/run_env.sh tool/dataset_tool/split_dataset.py dataset/miniQuickDraw/data_init.pt dataset/miniQuickDraw -r 0.8
 # rename output files
 mv dataset/miniQuickDraw/split_0.pt dataset/miniQuickDraw/train_init.pt
 mv dataset/miniQuickDraw/split_1.pt dataset/miniQuickDraw/val_init.pt
-# make inmemory versions
-sh tool/run_env.sh tool/dataset_tool/make_inmemory_dataset.py dataset/miniQuickDraw/train_init.pt dataset/miniQuickDraw/train_imgs.pt -t train
-sh tool/run_env.sh tool/dataset_tool/make_inmemory_dataset.py dataset/miniQuickDraw/val_init.pt dataset/miniQuickDraw/val_imgs.pt -t val
 
 
 # subsample 550 images per class from the remaining 45 classes (will make up our catalog and queries)
-sh tool/run_env.sh tool/dataset_tool/sub_sample.py dataset/quickDraw/data_init.pt dataset/miniQuickDraw/zeroshot_init.pt -n 550 -e dataset/miniQuickDraw/data_init.pt
+bash tool/run_env.sh tool/dataset_tool/sub_sample.py dataset/quickDraw/data_init.pt dataset/miniQuickDraw/zeroshot_init.pt -n 550 -e dataset/miniQuickDraw/data_init.pt
 # split into catalog images (500 images per class) and query images (50 per class)
-sh tool/run_env.sh tool/dataset_tool/split_dataset.py dataset/miniQuickDraw/zeroshot_init.pt dataset/miniQuickDraw -r 0.90909
+bash tool/run_env.sh tool/dataset_tool/split_dataset.py dataset/miniQuickDraw/zeroshot_init.pt dataset/miniQuickDraw -r 0.90909
 # rename output files
 mv dataset/miniQuickDraw/split_0.pt dataset/miniQuickDraw/zeroshot_test_init.pt
 mv dataset/miniQuickDraw/split_1.pt dataset/miniQuickDraw/zeroshot_queries_init.pt
-# make inmemory versions
-sh tool/run_env.sh tool/dataset_tool/make_inmemory_dataset.py dataset/miniQuickDraw/zeroshot_test_init.pt dataset/miniQuickDraw/zeroshot_test_imgs.pt -t val
-sh tool/run_env.sh tool/dataset_tool/make_inmemory_dataset.py dataset/miniQuickDraw/zeroshot_queries_init.pt dataset/miniQuickDraw/zeroshot_queries_imgs.pt -t val
 
 rm dataset/miniQuickDraw/data_init.pt
 rm dataset/miniQuickDraw/zeroshot_init.pt

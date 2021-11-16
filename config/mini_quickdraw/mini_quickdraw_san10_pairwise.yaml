@@ -1,21 +1,23 @@
 DATA:
-  data_root: dataset/Sketch_EITZ
+  data_root: dataset/miniQuickDraw
   dataset_init: preprocessed_paths
-  data_name: sketch_eitz
-  classes: 250
+  data_name: mini_quickdraw
+  classes: 300
   mean: [0.1307]
   std: [0.3081]
 
 TRAIN:
-  arch: nl
-  layers: [3, 2, 4, 1]
+  arch: san
+  sa_type: 0
+  layers: [2, 1, 2, 4, 1]
+  kernels: [3, 7, 7, 7, 7]
   ignore_label: 2000
   train_gpu: [0, 1]
   workers: 2
   batch_size: 64
   batch_size_val: 32
   base_lr: 0.1
-  epochs: 100
+  epochs: 40
   start_epoch: 0
   step_epochs: [30, 60, 90]
   label_smoothing: 0.1
@@ -26,7 +28,7 @@ TRAIN:
   manual_seed:
   print_freq: 10
   save_freq: 1
-  save_path: exp/sketch_eitz/nl/model
+  save_path: exp/mini_quickdraw/san10_pairwise/model
   weight:
   resume:
   evaluate: True
@@ -42,4 +44,4 @@ TEST:
   test_gpu: [0]
   test_workers: 2
   batch_size_test: 100
-  model_path: exp/sketch_eitz/nl/model/model_best.pth
+  model_path: exp/mini_quickdraw/san10_pairwise/model/model_best.pth

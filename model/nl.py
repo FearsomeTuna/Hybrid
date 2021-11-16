@@ -158,30 +158,30 @@ class NLBlockND(nn.Module):
         z = W_y + x
 
         return z
+        
 class NLLayer2D(nn.Sequential):
     def __init__(self, blocks: int, inplanes: int, mode: str) -> None:
-    layer = []
-    for _ in range (blocks):
-        layer.append(nn.BatchNorm2d(inplanes))
-        layer.append(nn.ReLU(inplace=True))
-        layer.append(NLBlockND(inplanes, mode=mode, dimension=2))
+        layer = []
+        for _ in range (blocks):
+            layer.append(nn.BatchNorm2d(inplanes))
+            layer.append(nn.ReLU(inplace=True))
+            layer.append(NLBlockND(inplanes, mode=mode, dimension=2))
             init_weights(layer[-3])
         super().__init__(*layer)
 
 class PureNonLocal2D(nn.Module):
-    def __init__(self, layers: List[int], num_classes: int, grayscale: bool, mode: str) -> None:
+    def __init__(self, layers: List[int], num_classes: int, mode: str) -> None:
         # doesn't rely on convolutions other than 1x1
         super().__init__()
 
         assert len(layers) == 4
         self.layers = layers
         self.num_classes = num_classes
-        self.grayscale = grayscale
         self.inplanes = 64
         self.mode = mode
 
         # stem
-        self.stem = san.conv1x1(1 if grayscale else 3, self.inplanes)
+        self.stem = san.conv1x1(3, self.inplanes)
         init_weights(self.stem)
         self.transition0 = san.TransitionLayer(self.inplanes, 64)
         self.transition1 = san.TransitionLayer(64, 256)

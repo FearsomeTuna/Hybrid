@@ -14,9 +14,9 @@ import torchvision.models.resnet as torchres
 
 #  some parts are adapted from torchvision.models.resnet ResNet._make_layer method implementation.
 
-def _resnetStem(grayscale: bool):
+def _resnetStem():
     outplanes = 64
-    conv1 = nn.Conv2d(1 if grayscale else 3, outplanes, kernel_size=7, stride=2, padding=3,
+    conv1 = nn.Conv2d(3, outplanes, kernel_size=7, stride=2, padding=3,
                       bias=False)
     bn1 = nn.BatchNorm2d(outplanes)
     relu = nn.ReLU(inplace=True)
@@ -25,14 +25,14 @@ def _resnetStem(grayscale: bool):
     init_weights(bn1)
     return nn.Sequential(conv1, bn1, relu, maxpool)
 
-def _sanStem(grayscale: bool):
+def _sanStem():
     outplanes = 64
-    conv_in = nn.Conv2d(1 if grayscale else 3, outplanes, kernel_size=1, bias=False)
+    conv_in = nn.Conv2d(3, outplanes, kernel_size=1, bias=False)
     init_weights(conv_in)
     return conv_in
 
 class MixedModel(nn.Module):
-    def __init__(self, layers: List[int], layer_types: List[str], widths: List[int], grayscale: bool, num_classes: int, stem: str, sa_type: Optional[int] = None, added_nl_blocks: Optional[List[int]] = None):
+    def __init__(self, layers: List[int], layer_types: List[str], widths: List[int], num_classes: int, stem: str, sa_type: Optional[int] = None, added_nl_blocks: Optional[List[int]] = None):
         """Initializes model that can mix resnet, san and non-local based stages, and can
         add some non-local blocks within each stage type, following ResNetNLLayer and SanNLLayer design
         (non-local blocks can't be added on top if the respective stage is non-local based).
@@ -48,10 +48,9 @@ class MixedModel(nn.Module):
         Model head is avgpool to 1x1, followed by fc layer with num_classes output size.
 
         Args:
-            layers (List[int]): amount of blocks per each stage (not considering nl blocks). Length should be 4.
+            layers (List[int]): amount of blocks per each stage (not considering nl blocks).
             layers_type (List[str]): list indicating the type of block to use in every stage. Every element can be one of 'san', 'res' or 'nl'.
             widths (List[int]): list indicating output channel size for each stage.
-            grayscale (bool): wheter input images are grayscale.
             num_classes (int): amount of classes for classification
             stem (str): either 'res' (7x7 conv, stride 2 -> bn -> relu -> 2x2 maxpool) or 'san' (single 1x1 convolution). Both output 64 channels.
             sa_type (Optional[int]): san operation, 0 for pairwise, 1 for patchwise           
@@ -79,9 +78,9 @@ class MixedModel(nn.Module):
                 raise ValueError('Bad argument: Non-Local stage cannot have added non-local blocks.')
 
         if stem == 'san':
-            self.stem = _sanStem(grayscale)
+            self.stem = _sanStem()
         elif stem == 'res':
-            self.stem = _resnetStem(grayscale)
+            self.stem = _resnetStem()
         else:
             raise ValueError('Invalid stem argument.')
         backbone = []
@@ -129,7 +128,7 @@ class MixedModel(nn.Module):
         return x
 
 
-def _shortcut(inplanes, outplanes, stride) -> Optional[nn.Sequential]:
+def _shortcut(inplanes: int, outplanes: int, stride: int) -> Optional[nn.Sequential]:
     shortcut = None
     if stride != 1 or inplanes != outplanes:
         shortcut = nn.Sequential(
