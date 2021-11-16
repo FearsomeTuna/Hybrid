@@ -158,15 +158,15 @@ class NLBlockND(nn.Module):
         z = W_y + x
 
         return z
-
-def make_layer2D(blocks: int, inplanes: int, mode: str) -> nn.Sequential:
+class NLLayer2D(nn.Sequential):
+    def __init__(self, blocks: int, inplanes: int, mode: str) -> None:
     layer = []
     for _ in range (blocks):
         layer.append(nn.BatchNorm2d(inplanes))
         layer.append(nn.ReLU(inplace=True))
         layer.append(NLBlockND(inplanes, mode=mode, dimension=2))
-    init_weights(layer[0])
-    return nn.Sequential(*layer)
+            init_weights(layer[-3])
+        super().__init__(*layer)
 
 class PureNonLocal2D(nn.Module):
     def __init__(self, layers: List[int], num_classes: int, grayscale: bool, mode: str) -> None:
@@ -185,13 +185,13 @@ class PureNonLocal2D(nn.Module):
         init_weights(self.stem)
         self.transition0 = san.TransitionLayer(self.inplanes, 64)
         self.transition1 = san.TransitionLayer(64, 256)
-        self.layer1 = make_layer2D(layers[0], 256, mode=self.mode)
+        self.layer1 = NLLayer2D(layers[0], 256, mode=self.mode)
         self.transition2 = san.TransitionLayer(256, 512)
-        self.layer2 = make_layer2D(layers[1], 512, mode=self.mode)
+        self.layer2 = NLLayer2D(layers[1], 512, mode=self.mode)
         self.transition3 = san.TransitionLayer(512, 1024)
-        self.layer3 = make_layer2D(layers[2], 1024, mode=self.mode)
+        self.layer3 = NLLayer2D(layers[2], 1024, mode=self.mode)
         self.transition4 = san.TransitionLayer(1024, 2048)
-        self.layer4 = make_layer2D(layers[3], 2048, mode=self.mode)
+        self.layer4 = NLLayer2D(layers[3], 2048, mode=self.mode)
 
         self.bn = nn.BatchNorm2d(2048)
         init_weights(self.bn)
