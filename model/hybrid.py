@@ -86,29 +86,31 @@ class MixedModel(nn.Module):
             raise ValueError('Invalid stem argument.')
         backbone = []
 
-        for i, stage_type, blocks, added_nl, _inplanes, _outplanes in zip(list(range(len(layers))), layer_types, layers, added_nl_blocks, in_widths, widths):
+        for i, stage_type, blocks, added_nl, _inplanes, _outplanes in zip(range(len(layers)), layer_types, layers, added_nl_blocks, in_widths, widths):
+            layer = []
             if stage_type == 'san':
-                backbone.append(san.TransitionLayer(_inplanes, _outplanes))
+                layer.append(san.TransitionLayer(_inplanes, _outplanes))
                 kernel_size = 3 if i == 0 else 7
                 if added_nl > 0:
-                    backbone.append(SanNLLayer(blocks, _outplanes, added_nl, sa_type, nl_mode, kernel_size=kernel_size))
+                    layer.append(SanNLLayer(blocks, _outplanes, added_nl, sa_type, nl_mode, kernel_size=kernel_size))
                 else:
-                    backbone.append(SANLayer(sa_type, _outplanes, blocks, kernel_size=kernel_size))
+                    layer.append(SANLayer(sa_type, _outplanes, blocks, kernel_size=kernel_size))                
             elif stage_type == 'res':
                 stride = 1 if i == 0 else 2 # first layer resnet type does not reduce resolution
                 if added_nl > 0:
-                    backbone.append(ResNetNLLayer(blocks, _inplanes, _outplanes, added_nl, nl_mode, stride=stride))
+                    layer.append(ResNetNLLayer(blocks, _inplanes, _outplanes, added_nl, nl_mode, stride=stride))
                 else:
-                    backbone.append(ResNetLayer(blocks, _inplanes, _outplanes, stride=stride))
+                    layer.append(ResNetLayer(blocks, _inplanes, _outplanes, stride=stride))
             elif stage_type == 'nl':
-                backbone.append(san.TransitionLayer(_inplanes, _outplanes))
-                backbone.append(nl.make_layer2D(blocks, _outplanes, mode=nl_mode))
+                layer.append(san.TransitionLayer(_inplanes, _outplanes))
+                layer.append(nl.NLLayer2D(blocks, _outplanes, mode=nl_mode))
             else:
                 raise ValueError('stage_type argument includes "' + stage_type + '" invalid argument.')
 
-        if layer_types[-1] == 'san' or layer_types[-1] == 'nl':
-            backbone.extend([nn.BatchNorm2d(widths[-1]), nn.ReLU(inplace=True)])
-            init_weights(backbone[-2])
+            if i == len(layers)-1 and layer_types[-1] == 'san' or layer_types[-1] == 'nl': # last layer is san or nl
+                layer.extend([nn.BatchNorm2d(widths[-1]), nn.ReLU(inplace=True)])
+                init_weights(layer[-2])
+            backbone.append(nn.Sequential(*layer))        
 
         self.backbone = nn.Sequential(*backbone)
 
