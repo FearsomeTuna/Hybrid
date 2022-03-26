@@ -68,7 +68,7 @@ back/
 *.pth
 events*
 #config/
-dataset/
+#dataset/
 *.ninja_deps
 *.ninja_log
 *.ninja
