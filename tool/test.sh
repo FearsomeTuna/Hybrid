@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 ## uncomment for slurm
 ##SBATCH -p quadro
@@ -7,7 +7,7 @@
 
 export PYTHONPATH=./
 eval "$(conda shell.bash hook)"
-conda activate ptEnv  # pytorch env
+conda activate torchEnv  # pytorch env
 PYTHON=python
 
 dataset=$1

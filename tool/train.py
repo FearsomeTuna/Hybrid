@@ -19,16 +19,12 @@ import torch.optim.lr_scheduler as lr_scheduler
 import torch.multiprocessing as mp
 import torch.distributed as dist
 from tensorboardX import SummaryWriter
-from PIL import Image
 
-from model.san import san
 from model.hybrid import MixedModel
-from model.resnet import resnet
-from model.nl import PureNonLocal2D
 
 from util import config
 from util.util import AverageMeter, intersectionAndUnionGPU, find_free_port, mixup_data, mixup_loss, smooth_loss, cal_accuracy
-from util.dataset import PathsFileDataset
+from util.dataset import TxtFileDataset
 
 cv2.ocl.setUseOpenCL(False)
 cv2.setNumThreads(0)
@@ -104,15 +100,8 @@ def main_worker(gpu, ngpus_per_node, argss):
             args.rank = args.rank * ngpus_per_node + gpu
         dist.init_process_group(backend=args.dist_backend, init_method=args.dist_url, world_size=args.world_size, rank=args.rank)
 
-    if (args.arch == 'resnet'): # resnet
-        model = resnet(args.layers, args.classes)
-    elif args.arch == 'san': # SAN
-        model = san(args.sa_type, args.layers, args.kernels, args.classes)
-    elif args.arch == 'nl':
-        model = PureNonLocal2D(args.layers, args.classes, 'dot')
-    elif args.arch == 'hybrid':
-        model = MixedModel(args.layers, args.layer_types, args.widths, args.classes, args.layer_types[0], args.sa_type if 'san' in args.layer_types else None, args.added_nl_blocks)
-    
+    model = MixedModel(args.layers, args.layer_types, args.widths, args.classes, args.layer_types[0], args.sa_type if 'san' in args.layer_types else None, args.added_nl_blocks)
+
     total_params = sum(p.numel() for p in model.parameters())
     total_params_trainable = sum(p.numel() for p in model.parameters() if p.requires_grad)
 
@@ -133,6 +122,28 @@ def main_worker(gpu, ngpus_per_node, argss):
         logger.info("Model total num of params: {}".format(total_params))
         logger.info("Model total num of trainable params: {}".format(total_params_trainable))
         logger.info(model)
+
+    if args.weight:
+        if os.path.isfile(args.weight):
+            if main_process():
+                logger.info("=> loading weight '{}'".format(args.weight))
+            checkpoint = torch.load(args.weight, map_location=lambda storage, loc: storage.cuda(gpu))
+            # if state dict comes from DP or DDP model, remove prefix
+            nn.modules.utils.consume_prefix_in_state_dict_if_present(checkpoint['state_dict'], "module.")
+            try:
+                model.load_state_dict(checkpoint['state_dict'])
+                if main_process():
+                    logger.info("=> loaded weight '{}'".format(args.weight))
+            except RuntimeError as e:
+                if main_process():
+                    logger.info("=> couldn't complete full weight load. Possible partial mismatch. Trying without model head...")
+                model.load_state_dict_no_head(checkpoint['state_dict'])
+                if main_process():
+                    logger.info("=> loaded partial weight '{}'".format(args.weight))
+        else:
+            if main_process():
+                logger.info("=> no weight found at '{}'".format(args.weight))
+
     if args.distributed:
         torch.cuda.set_device(gpu)
         args.batch_size = int(args.batch_size / ngpus_per_node)
@@ -141,18 +152,6 @@ def main_worker(gpu, ngpus_per_node, argss):
         model = torch.nn.parallel.DistributedDataParallel(model.cuda(), device_ids=[gpu])
     else:
         model = torch.nn.DataParallel(model.cuda())
-
-    if args.weight:
-        if os.path.isfile(args.weight):
-            if main_process():
-                logger.info("=> loading weight '{}'".format(args.weight))
-            checkpoint = torch.load(args.weight)
-            model.load_state_dict(checkpoint['state_dict'])
-            if main_process():
-                logger.info("=> loaded weight '{}'".format(args.weight))
-        else:
-            if main_process():
-                logger.info("=> no weight found at '{}'".format(args.weight))
 
     if args.resume:
         if os.path.isfile(args.resume):
@@ -170,19 +169,15 @@ def main_worker(gpu, ngpus_per_node, argss):
             if main_process():
                 logger.info("=> no checkpoint found at '{}'".format(args.resume))
 
-    mean, std = [0.485, 0.456, 0.406], [0.229, 0.224, 0.225]
-    if args.mean: mean = args.mean
-    if args.std: std = args.std
+    train_transform = transforms.Compose([transforms.RandomResizedCrop(224), transforms.RandomHorizontalFlip(), transforms.ToTensor(), transforms.Normalize(args.mean, args.std)])
+    val_transform = transforms.Compose([transforms.Resize(256), transforms.CenterCrop(224), transforms.ToTensor(), transforms.Normalize(args.mean, args.std)])
 
-    train_transform = transforms.Compose([transforms.RandomResizedCrop(224), transforms.RandomHorizontalFlip(), transforms.ToTensor(), transforms.Normalize(mean, std)])
-    val_transform = transforms.Compose([transforms.Resize(256), transforms.CenterCrop(224), transforms.ToTensor(), transforms.Normalize(mean, std)])
-
-    if args.dataset_init == 'preprocessed_paths':
-        train_set = PathsFileDataset(args.data_root, 'train_init.pt', transform=train_transform)
-        val_set = PathsFileDataset(args.data_root, 'val_init.pt', transform=val_transform)
-    elif args.dataset_init == 'image_folder':
+    if args.dataset_init == 'image_folder':
         train_set = torchvision.datasets.ImageFolder(os.path.join(args.data_root, 'train'), train_transform)
         val_set = torchvision.datasets.ImageFolder(os.path.join(args.data_root, 'val'), val_transform)
+    elif args.dataset_init == 'txt_mappings':
+        train_set = TxtFileDataset(args.data_root, 'train.txt', 'mapping.txt', "\t", True, transform=train_transform)
+        val_set = TxtFileDataset(args.data_root, 'val.txt', 'mapping.txt', "\t", True, transform=val_transform)
     else:
         raise ValueError("Invalid value for dataset_init config argument.")
 
@@ -227,11 +222,16 @@ def main_worker(gpu, ngpus_per_node, argss):
             if epoch_log / args.save_freq > 2:
                 deletename = args.save_path + '/train_epoch_' + str(epoch_log - args.save_freq * 2) + '.pth'
                 os.remove(deletename)
+    if main_process():
+        writer.close()
 
 
 def train(train_loader, model, criterion, optimizer, epoch):
-    batch_time = AverageMeter()
+    iter_time = AverageMeter()
     data_time = AverageMeter()
+    transfer_time = AverageMeter()
+    batch_time = AverageMeter()
+    metric_time = AverageMeter()
     loss_meter = AverageMeter()
     intersection_meter = AverageMeter()
     union_meter = AverageMeter()
@@ -244,8 +244,16 @@ def train(train_loader, model, criterion, optimizer, epoch):
     max_iter = args.epochs * len(train_loader)
     for i, (input, target) in enumerate(train_loader):
         data_time.update(time.time() - end)
+        if args.time_breakdown:
+            last = time.time()
+
         input = input.cuda(non_blocking=True)
         target = target.cuda(non_blocking=True)
+        if args.time_breakdown:
+            torch.cuda.synchronize()
+            transfer_time.update(time.time() - last)
+            last = time.time()
+
         if args.mixup_alpha:
             eps = args.label_smoothing if args.label_smoothing else 0.0
             input, target_a, target_b, lam = mixup_data(input, target, args.mixup_alpha)
@@ -258,6 +266,11 @@ def train(train_loader, model, criterion, optimizer, epoch):
         loss.backward()
         optimizer.step()
 
+        if args.time_breakdown:
+            torch.cuda.synchronize()
+            batch_time.update(time.time() - last)
+            last = time.time()
+
         top1, top5 = cal_accuracy(output, target, topk=(1, 5))
         n = input.size(0)
         if args.multiprocessing_distributed:
@@ -276,33 +289,48 @@ def train(train_loader, model, criterion, optimizer, epoch):
         intersection, union, target = intersection.cpu().numpy(), union.cpu().numpy(), target.cpu().numpy()
         intersection_meter.update(intersection), union_meter.update(union), target_meter.update(target)
         accuracy = sum(intersection_meter.val) / (sum(target_meter.val) + 1e-10)
-        batch_time.update(time.time() - end)
+        if args.time_breakdown:
+            torch.cuda.synchronize()
+            metric_time.update(time.time() - last)
+        iter_time.update(time.time() - end)
         end = time.time()
+        
+        
 
         # calculate remain time
         current_iter = epoch * len(train_loader) + i + 1
         remain_iter = max_iter - current_iter
-        remain_time = remain_iter * batch_time.avg
+        remain_time = remain_iter * iter_time.avg
         t_m, t_s = divmod(remain_time, 60)
         t_h, t_m = divmod(t_m, 60)
         remain_time = '{:02d}:{:02d}:{:02d}'.format(int(t_h), int(t_m), int(t_s))
 
         if ((i + 1) % args.print_freq == 0) and main_process():
-            logger.info('Epoch: [{}/{}][{}/{}] '
-                        'Data {data_time.val:.3f} ({data_time.avg:.3f}) '
-                        'Batch {batch_time.val:.3f} ({batch_time.avg:.3f}) '
+            logger.info(('Epoch: [{}/{}][{}/{}] '
+                        'Time {iter_time.val:.3f} ({iter_time.avg:.3f}) '
+                        'Data {data_time.val:.3f} ({data_time.avg:.3f}) ' +
+                        (
+                            'Transfer {transfer_time.val:.3f} ({transfer_time.avg:.3f}) '
+                            'Batch {batch_time.val:.4f} ({batch_time.avg:.4f}) '
+                            'Metric {metric_time.val:.3f} ({metric_time.avg:.3f}) '
+                            if args.time_breakdown else ''
+                        ) +
                         'Remain {remain_time} '
                         'Loss {loss_meter.val:.4f} '
                         'Accuracy {accuracy:.4f} '
                         'Acc@1 {top1.val:.3f} ({top1.avg:.3f}) '
-                        'Acc@5 {top5.val:.3f} ({top5.avg:.3f}).'.format(epoch+1, args.epochs, i + 1, len(train_loader),
+                        'Acc@5 {top5.val:.3f} ({top5.avg:.3f}).').format(epoch+1, args.epochs, i + 1, len(train_loader),
+                                                                        iter_time=iter_time,
                                                                         data_time=data_time,
+                                                                        transfer_time=transfer_time,
                                                                         batch_time=batch_time,
+                                                                        metric_time=metric_time,
                                                                         remain_time=remain_time,
                                                                         loss_meter=loss_meter,
                                                                         accuracy=accuracy,
                                                                         top1=top1_meter,
                                                                         top5=top5_meter))
+
         if main_process():
             writer.add_scalar('loss_train_batch', loss_meter.val, current_iter)
             writer.add_scalar('mIoU_train_batch', np.mean(intersection / (union + 1e-10)), current_iter)
@@ -310,6 +338,7 @@ def train(train_loader, model, criterion, optimizer, epoch):
             writer.add_scalar('allAcc_train_batch', accuracy, current_iter)
             writer.add_scalar('top1_train_batch', top1, current_iter)
             writer.add_scalar('top5_train_batch', top5, current_iter)
+        
 
     iou_class = intersection_meter.sum / (union_meter.sum + 1e-10)
     accuracy_class = intersection_meter.sum / (target_meter.sum + 1e-10)
@@ -320,12 +349,15 @@ def train(train_loader, model, criterion, optimizer, epoch):
         logger.info('Train result at epoch [{}/{}]: mIoU/mAcc/allAcc/top1/top5 {:.4f}/{:.4f}/{:.4f}/{:.4f}/{:.4f}.'.format(epoch+1, args.epochs, mIoU, mAcc, allAcc, top1_meter.avg, top5_meter.avg))
     return loss_meter.avg, mIoU, mAcc, allAcc, top1_meter.avg, top5_meter.avg
 
-
+@torch.no_grad()
 def validate(val_loader, model, criterion):
     if main_process():
         logger.info('>>>>>>>>>>>>>>>> Start Evaluation >>>>>>>>>>>>>>>>')
-    batch_time = AverageMeter()
+    iter_time = AverageMeter()
     data_time = AverageMeter()
+    transfer_time = AverageMeter() 
+    batch_time = AverageMeter()
+    metric_time = AverageMeter()
     loss_meter = AverageMeter()
     intersection_meter = AverageMeter()
     union_meter = AverageMeter()
@@ -337,20 +369,31 @@ def validate(val_loader, model, criterion):
     end = time.time()
     for i, (input, target) in enumerate(val_loader):
         data_time.update(time.time() - end)
+        if args.time_breakdown:
+            last = time.time()
+
         input = input.cuda(non_blocking=True)
         target = target.cuda(non_blocking=True)
+        if args.time_breakdown:
+            torch.cuda.synchronize()
+            transfer_time.update(time.time() - last)
+            last = time.time()
+
         output = model(input)
         loss = criterion(output, target)
+        if args.time_breakdown:
+            torch.cuda.synchronize()
+            batch_time.update(time.time() - last)
+            last = time.time()
 
         top1, top5 = cal_accuracy(output, target, topk=(1, 5))
         n = input.size(0)
         if args.multiprocessing_distributed:
-            with torch.no_grad():
-                loss, top1, top5 = loss.detach() * n, top1 * n, top5 * n
-                count = target.new_tensor([n], dtype=torch.long)
-                dist.all_reduce(loss), dist.all_reduce(top1), dist.all_reduce(top5), dist.all_reduce(count)
-                n = count.item()
-                loss, top1, top5 = loss / n, top1 / n, top5 / n
+            loss, top1, top5 = loss.detach() * n, top1 * n, top5 * n
+            count = target.new_tensor([n], dtype=torch.long)
+            dist.all_reduce(loss), dist.all_reduce(top1), dist.all_reduce(top5), dist.all_reduce(count)
+            n = count.item()
+            loss, top1, top5 = loss / n, top1 / n, top5 / n
         loss_meter.update(loss.item(), n), top1_meter.update(top1.item(), n), top5_meter.update(top5.item(), n)
 
         output = output.max(1)[1]
@@ -360,19 +403,31 @@ def validate(val_loader, model, criterion):
         intersection, union, target = intersection.cpu().numpy(), union.cpu().numpy(), target.cpu().numpy()
         intersection_meter.update(intersection), union_meter.update(union), target_meter.update(target)
         accuracy = sum(intersection_meter.val) / (sum(target_meter.val) + 1e-10)
-        batch_time.update(time.time() - end)
+        if args.time_breakdown:
+            torch.cuda.synchronize()
+            metric_time.update(time.time() - last)
+        iter_time.update(time.time() - end)
         end = time.time()
 
         if ((i + 1) % args.print_freq == 0) and main_process():
-            logger.info('Test: [{}/{}] '
-                        'Data {data_time.val:.3f} ({data_time.avg:.3f}) '
-                        'Batch {batch_time.val:.3f} ({batch_time.avg:.3f}) '
+            logger.info(('Test: [{}/{}] '
+                        'Time {iter_time.val:.3f} ({iter_time.avg:.3f}) '
+                        'Data {data_time.val:.3f} ({data_time.avg:.3f}) ' +
+                        (
+                            'Transfer {transfer_time.val:.3f} ({transfer_time.avg:.3f}) '
+                            'Batch {batch_time.val:.4f} ({batch_time.avg:.4f}) '
+                            'Metric {metric_time.val:.3f} ({metric_time.avg:.3f}) '
+                            if args.time_breakdown else ''
+                        ) +                      
                         'Loss {loss_meter.val:.4f} ({loss_meter.avg:.4f}) '
                         'Accuracy {accuracy:.4f} '
                         'Acc@1 {top1.val:.3f} ({top1.avg:.3f}) '
-                        'Acc@5 {top5.val:.3f} ({top5.avg:.3f}).'.format(i + 1, len(val_loader),
+                        'Acc@5 {top5.val:.3f} ({top5.avg:.3f}).').format(i + 1, len(val_loader),
+                                                                        iter_time=iter_time,
                                                                         data_time=data_time,
+                                                                        transfer_time=transfer_time,
                                                                         batch_time=batch_time,
+                                                                        metric_time=metric_time,
                                                                         loss_meter=loss_meter,
                                                                         accuracy=accuracy,
                                                                         top1=top1_meter,

@@ -19,13 +19,13 @@ config=config/${dataset}/${dataset}_${exp_name}.yaml
 now=$(date +"%Y%m%d_%H%M%S")
 
 mkdir -p ${model_dir} ${result_dir}
-cp tool/train.sh tool/train.py tool/test.sh tool/test.py ${config} ${exp_dir}
+cp tool/sbir_train.sh tool/sbir_train.py tool/sbir_test.sh tool/sbir_test.py ${config} ${exp_dir}
 
 export PYTHONPATH=./
-$PYTHON -u ${exp_dir}/train.py \
+$PYTHON -u ${exp_dir}/sbir_train.py \
   --config=${config} \
   2>&1 | tee ${model_dir}/train-$now.log
 
-$PYTHON -u ${exp_dir}/test.py \
+$PYTHON -u ${exp_dir}/sbir_test.py \
   --config=${config} \
   2>&1 | tee ${result_dir}/test-$now.log

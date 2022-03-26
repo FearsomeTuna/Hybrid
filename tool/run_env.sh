@@ -1,8 +1,8 @@
-#!/bin/sh
+#!/bin/bash
 
 export PYTHONPATH=./
 eval "$(conda shell.bash hook)"
-conda activate ptEnv  # pytorch env
+conda activate torchEnv  # pytorch env
 PYTHON=python
 
 export PYTHONPATH=./

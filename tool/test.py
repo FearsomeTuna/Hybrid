@@ -13,14 +13,11 @@ import torch.utils.data
 import torchvision
 import torchvision.transforms as transforms
 
-from model.san import san
 from model.hybrid import MixedModel
-from model.resnet import resnet
-from model.nl import PureNonLocal2D
 
 from util import config
 from util.util import AverageMeter, intersectionAndUnionGPU, cal_accuracy
-from util.dataset import PathsFileDataset
+from util.dataset import TxtFileDataset
 
 cv2.ocl.setUseOpenCL(False)
 cv2.setNumThreads(0)
@@ -59,14 +56,7 @@ def main():
     logger.info("Classes: {}".format(args.classes))
     os.environ["CUDA_VISIBLE_DEVICES"] = ','.join(str(x) for x in args.test_gpu)
 
-    if (args.arch == 'resnet'): # resnet
-        model = resnet(args.layers, args.classes)
-    elif args.arch == 'san': # SAN
-        model = san(args.sa_type, args.layers, args.kernels, args.classes)
-    elif args.arch == 'nl':
-        model = PureNonLocal2D(args.layers, args.classes, 'dot')
-    elif args.arch == 'hybrid':
-        model = MixedModel(args.layers, args.layer_types, args.widths, args.classes, args.layer_types[0], args.sa_type if 'san' in args.layer_types else None, args.added_nl_blocks)
+    model = MixedModel(args.layers, args.layer_types, args.widths, args.classes, args.layer_types[0], args.sa_type if 'san' in args.layer_types else None, args.added_nl_blocks)
     
     logger.info(model)
     model = torch.nn.DataParallel(model.cuda())
@@ -87,21 +77,24 @@ def main():
     test_transform = transforms.Compose([transforms.Resize(256), transforms.CenterCrop(224), transforms.ToTensor(), transforms.Normalize(mean, std)])
 
     folder_name = 'val' if args.use_val_set else 'test'
-    if args.dataset_init == 'preprocessed_paths':
-        test_set = PathsFileDataset(args.data_root, folder_name + '_init.pt', transform=test_transform)
-    elif args.dataset_init == 'image_folder':
+    if args.dataset_init == 'image_folder':
         test_set = torchvision.datasets.ImageFolder(os.path.join(args.data_root, folder_name), test_transform)
+    elif args.dataset_init == 'txt_mappings':
+        test_set = TxtFileDataset(args.data_root, folder_name + '.txt', 'mapping.txt', "\t", True, transform=test_transform)
     else:
         raise ValueError("Invalid value for dataset_init config argument.")
     
     test_loader = torch.utils.data.DataLoader(test_set, batch_size=args.batch_size_test, shuffle=False, num_workers=args.test_workers, pin_memory=True)
     validate(test_loader, model, criterion)
 
-
+@torch.no_grad()
 def validate(val_loader, model, criterion):
     logger.info('>>>>>>>>>>>>>>>> Start Evaluation >>>>>>>>>>>>>>>>')
-    batch_time = AverageMeter()
+    iter_time = AverageMeter()
     data_time = AverageMeter()
+    transfer_time = AverageMeter() 
+    batch_time = AverageMeter()
+    metric_time = AverageMeter()
     loss_meter = AverageMeter()
     intersection_meter = AverageMeter()
     union_meter = AverageMeter()
@@ -113,12 +106,23 @@ def validate(val_loader, model, criterion):
     end = time.time()
     for i, (input, target) in enumerate(val_loader):
         data_time.update(time.time() - end)
+        if args.time_breakdown:
+            last = time.time()
+
         input = input.cuda(non_blocking=True)
         target = target.cuda(non_blocking=True)
+        if args.time_breakdown:
+            torch.cuda.synchronize()
+            transfer_time.update(time.time() - last)
+            last = time.time()
 
-        with torch.no_grad():
-            output = model(input)
+        output = model(input)
         loss = criterion(output, target)
+        if args.time_breakdown:
+            torch.cuda.synchronize()
+            batch_time.update(time.time() - last)
+            last = time.time()
+
         top1, top5 = cal_accuracy(output, target, topk=(1, 5))
         n = input.size(0)
         loss_meter.update(loss.item(), n), top1_meter.update(top1.item(), n), top5_meter.update(top5.item(), n)
@@ -129,19 +133,31 @@ def validate(val_loader, model, criterion):
         intersection_meter.update(intersection), union_meter.update(union), target_meter.update(target)
 
         accuracy = sum(intersection_meter.val) / (sum(target_meter.val) + 1e-10)
-        batch_time.update(time.time() - end)
+        if args.time_breakdown:
+            torch.cuda.synchronize()
+            metric_time.update(time.time() - last)
+        iter_time.update(time.time() - end)
         end = time.time()
 
         if (i + 1) % args.print_freq == 0:
-            logger.info('Test: [{}/{}] '
-                        'Data {data_time.val:.3f} ({data_time.avg:.3f}) '
-                        'Batch {batch_time.val:.3f} ({batch_time.avg:.3f}) '
+            logger.info(('Test: [{}/{}] '
+                        'Time {iter_time.val:.3f} ({iter_time.avg:.3f}) '
+                        'Data {data_time.val:.3f} ({data_time.avg:.3f}) ' +
+                        (
+                            'Transfer {transfer_time.val:.3f} ({transfer_time.avg:.3f}) '
+                            'Batch {batch_time.val:.3f} ({batch_time.avg:.3f}) '
+                            'Metric {metric_time.val:.3f} ({metric_time.avg:.3f}) '
+                            if args.time_breakdown else ''
+                        ) +   
                         'Loss {loss_meter.val:.4f} ({loss_meter.avg:.4f}) '
                         'Accuracy {accuracy:.4f} '
                         'Acc@1 {top1.val:.3f} ({top1.avg:.3f}) '
-                        'Acc@5 {top5.val:.3f} ({top5.avg:.3f}).'.format(i + 1, len(val_loader),
+                        'Acc@5 {top5.val:.3f} ({top5.avg:.3f}).').format(i + 1, len(val_loader),
+                                                                        iter_time=iter_time,
                                                                         data_time=data_time,
+                                                                        transfer_time=transfer_time,
                                                                         batch_time=batch_time,
+                                                                        metric_time=metric_time,
                                                                         loss_meter=loss_meter,
                                                                         accuracy=accuracy,
                                                                         top1=top1_meter,
