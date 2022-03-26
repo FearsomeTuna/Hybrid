@@ -3,7 +3,8 @@ This repo forks the original [paper](https://hszhao.github.io/papers/cvpr20_san.
 
 ## Our hardware and software setup
 
-   - Hardware: tested with two Titan X (12Gb, 24 Gb total).
+   - Hardware setup 1: tested with two Titan X (12Gb, 24 Gb total).
+   - Hardware setup 2: tested with two Titan RTX (24Gb, 48 Gb total).
    - Software: tested with PyTorch 1.9, Python3.9, CUDA toolkit 10.2, CuPy=9.4, tensorboardX. See <a href='#exampleInstall'>example installation section</a> for more requirements and install instructions.
 
 <div id="exampleInstall">
@@ -11,11 +12,11 @@ This repo forks the original [paper](https://hszhao.github.io/papers/cvpr20_san.
 ## Example installation
 
 ```shell
-git clone https://github.com/FearsomeTuna/SAN.git
-cd SAN
+git clone https://github.com/FearsomeTuna/Hybrid.git
+cd Hybrid
 conda create -n torchEnv
 conda activate torchEnv
-conda install pytorch torchvision cupy cudatoolkit=10.2 tensorboardx torchmetrics pyyaml pandas -c pytorch -c conda-forge
+conda install pytorch torchvision cupy cudatoolkit=10.2 tensorboardx torchmetrics pyyaml -c pytorch -c conda-forge
 pip install opencv-python
 ```
 </div>
@@ -24,92 +25,27 @@ pip install opencv-python
 
 ## Dataset preparation
 
-Prior to training, datasets must be already split and organized in 'train', 'val' and (possibly) 'test' sets. Our setup allows for 3 different ways to initialize the datasets at training/testing:
+Prior to training, datasets must be already split and organized in 'train', 'val' and (possibly) 'test' sets. Our setup allows for 2 different ways to initialize the datasets at training/testing:
 
-1. 'train' and 'val' folders with images grouped into subclasses (same as pytorch's torchvision.datasets.ImageFolder requires).
-2. Custom 'train_init.pt' and 'val_init.pt' files with list of predefined (image_path, target_class) tuples. This can be achieved with make_dataset_path.py and split_dataset.py utilities.
+1. 'train' and 'val' folders with images grouped into subclasses (same as pytorch's torchvision.datasets.ImageFolder requires). Not supported for SBIR training.
+2. Txt files: for each set, two files are required: one type with img_path -> target_class mappings and another with class_name -> target_class mappings. util.dataset.py for options. We provide the txt files used in the dataset folder. Root path may need to be changed. There should be a dataset/flickr25k/sketches with the same contents as dataset/Sketch_EITZ (contents can be copied or a softlink can be made to avoid duplication).
 
-These custom files are based on torch.save and torch.load functions.
+Datasets can be found on:
+- [TU-Berlin (Sketch-eitz)](https://github.com/jmsaavedrar/convnet2) for a resized version. Original [here](http://cybertron.cg.tu-berlin.de/eitz/projects/classifysketch/)
+- [QuickDraw](https://github.com/googlecreativelab/quickdraw-dataset) (may need some additional processing to get jpg images).
+- [Flickr15k](https://www.cvssp.org/data/Flickr25K/cag17.html).
+- Flickr25k (photos) may also be found on the previous source.
+- [ImageNet (ILSVRC)](https://www.kaggle.com/competitions/imagenet-object-localization-challenge/data).
 
-Dataset organization must be declared in config file for correct dataset import (see <a href='#configSection'>config</a> section for more info).
+Not all sources use the same class mappings. The provided source for Flickr15k has consistent mappings between sketches and photos, but mappings between Flickr25k (photos) and TU-Berlin may not be consistent, and it may be needed to rename some folders/classes for them to match. It is recommended to check this from the start. SBIR training scripts will notify the user if class mappings don't match (or, if using the provided txt files, will crash if images are not found).
 
-</div>
-
-<div id='examplePreparation'>
-
-## Example dataset preparation
-
-Sketch_EITZ dataset (better known as TU_Berlin in the literature) can be found [here](http://cybertron.cg.tu-berlin.de/eitz/projects/classifysketch/), though for our purposes, we use a lower size version found on [this](https://github.com/jmsaavedrar/convnet2) repo.
-
-Here we show the second way described in <a href='#preparation'>Dataset preparation</a>. The following script generates custom files with path information from TU_Berlin dataset, saving them to folders within `SAN/dataset` folder. To run generic python files inside conda environment, we use `run_env.sh` script. This just activates conda environment and passes remaining arguments to python file:
-
-```shell
-# downloaded file: EITZ.zip from second link
-DOWNLOAD_PATH="/path/to/downloaded/files" # download directory
-
-SAN_ROOT="/path/to/SAN"
-cd $SAN_ROOT
-mkdir dataset
-
-# EITZ
-unzip $DOWNLOAD_PATH/EITZ.zip -d dataset
-rm dataset/Sketch_EITZ/mapping.txt dataset/Sketch_EITZ/test.txt dataset/Sketch_EITZ/train.txt
-mv dataset/Sketch_EITZ/png_w256 dataset/Sketch_EITZ/data
-
-# conda environment must be correctly setup to run utilities
-
-# first we make paths file. Last 3 arguments are input folder (images), output folder for generated file, and output filename.
-bash tool/run_env.sh tool/dataset_tool/make_dataset_paths.py dataset/Sketch_EITZ/data dataset/Sketch_EITZ data_init.pt
-
-# take dataset/Sketch_EITZ/data_init.pt info and split it in two sets according to 0.8 and 0.2 ratios. Output to dataset/Sketch_EITZ
-bash tool/run_env.sh tool/dataset_tool/split_dataset.py dataset/Sketch_EITZ/data_init.pt dataset/Sketch_EITZ -r 0.8
-
-# rename output files
-mv dataset/Sketch_EITZ/split_0.pt dataset/Sketch_EITZ/train_init.pt
-mv dataset/Sketch_EITZ/split_1.pt dataset/Sketch_EITZ/val_init.pt
-
-rm dataset/Sketch_EITZ/data_init.pt
-```
-To create our mini QuickDraw dataset, with reserved classes for zeroshot testing, we follow the next procedure:
-```shell
-# path to complete quickdraw dataset, with main folder containing subfolders for each class
-QUICKDRAW_PATH="/path/to/quickdraw/data"
-
-SAN_ROOT="/path/to/SAN"
-cd $SAN_ROOT
-
-# we suppose 'dataset' dir is already created, as per the previous script example
-bash tool/run_env.sh tool/dataset_tool/make_dataset_paths.py $QUICKDRAW_PATH dataset/quickDraw data_init.pt
-
-# subsample 1000 images per class from 300 classes
-bash tool/run_env.sh tool/dataset_tool/sub_sample.py dataset/quickDraw/data_init.pt dataset/miniQuickDraw/data_init.pt -n 1000 -c 300
-# split the 300 class subsample into train and val sets
-bash tool/run_env.sh tool/dataset_tool/split_dataset.py dataset/miniQuickDraw/data_init.pt dataset/miniQuickDraw -r 0.8
-# rename output files
-mv dataset/miniQuickDraw/split_0.pt dataset/miniQuickDraw/train_init.pt
-mv dataset/miniQuickDraw/split_1.pt dataset/miniQuickDraw/val_init.pt
-
-
-# subsample 550 images per class from the remaining 45 classes (will make up our catalog and queries)
-bash tool/run_env.sh tool/dataset_tool/sub_sample.py dataset/quickDraw/data_init.pt dataset/miniQuickDraw/zeroshot_init.pt -n 550 -e dataset/miniQuickDraw/data_init.pt
-# split into catalog images (500 images per class) and query images (50 per class)
-bash tool/run_env.sh tool/dataset_tool/split_dataset.py dataset/miniQuickDraw/zeroshot_init.pt dataset/miniQuickDraw -r 0.90909
-# rename output files
-mv dataset/miniQuickDraw/split_0.pt dataset/miniQuickDraw/zeroshot_test_init.pt
-mv dataset/miniQuickDraw/split_1.pt dataset/miniQuickDraw/zeroshot_queries_init.pt
-
-rm dataset/miniQuickDraw/data_init.pt
-rm dataset/miniQuickDraw/zeroshot_init.pt
-```
 </div>
 
 <div id='configSection'>
 
 ## Set configurations on a config file
 
-Dataset location must be specified in config files. Example config files supposes a 'dataset' folder in SAN root (see `sample.yaml` config file in `config/sample` directory).
-
-Along with dataset organization and location, a variety of parameters can/must be set through config YAML files. Modifiying batch sizes (train, validation and test) and number of workers might be of particular interest to run implemented models on less powerful hardware. For instance, train and validation batch sizes of 32 and 16, respectively, along with 2 workers for data loaders, where used succesfully on google collab environment for pure SAN classification models on early tests (12gb vram).
+Along with dataset info, a variety of parameters can/must be set through config YAML files. Example config files are in `config/sample` directory. Modifiying batch sizes (train, validation and test) and number of workers might be of particular interest to run implemented models on less powerful hardware. For instance, train and validation batch sizes of 32 and 16, respectively, along with 2 workers for data loaders, where used succesfully on google collab environment for pure SAN classification models on early tests (12gb vram).
 
 Config files should be placed inside a `config/{dataset}` directory using the `{dataset}_{name}.yaml` naming convention.
 
@@ -117,24 +53,55 @@ Config files should be placed inside a `config/{dataset}` directory using the `{
 
 ## Example train 
 
-Set the correct environment name in tool/train.sh
+Set the correct environment name in all .sh files in tool folder, like in the following example:
 
-```shell
+```bash
 export PYTHONPATH=./
 eval "$(conda shell.bash hook)"
-conda activate torchEnv # set this to your conda environment name
+conda activate torchEnv # set this to your conda environment name, if you use a different name
 ```
-The following example runs training and testing using `sketch_eitz_resnet26.yaml` config file located in `config/sketch_eitz` folder.
+The following example runs training and testing for resnet26 variant.
 
-```shell
-cd SAN
-sh tool/train.sh sketch_eitz resnet26
+```bash
+cd Hybrid
+# run both train and test for normal classification
+bash tool/train.sh sketch_eitz resnet26
+
+# run imagenet pre-train
+bash tool/train.sh imagenet resnet26
+
+# run phase 1 sbir training with imagenet pre-train weights (separate classification for each branch)
+bash tool/train.sh sketch_eitz resnet26_imgnet_weights
+bash tool/train.sh flickr25k_photos resnet26_imgnet_weights
+
+# run phase 2-3 sbir training
+bash too/sbir_train.sh flickr resnet26
 ```
+
+To run only test, use ```tool/test.sh``` and ```tool/sbir_test.sh``` scripts.
+The following example runs classification training, testing and monomodal retrieval testing on mini_quickdraw, for resnet26:
+
+```bash
+cd Hybrid
+# run both train and test for normal classification
+bash tool/train.sh mini_quickdraw resnet26
+
+# monomodal retrieval test
+bash tool/monomodal_zeroshot_test.sh mini_quickdraw resnet26;
+```
+
+Theoretical complexity and parameter count for all variants can be calculated through:
+```bash
+cd Hybrid
+bash tool/run_env.sh tool/counter.py
+```
+```run_env.sh``` runs the next argument as a python script on the conda environment, and passes the remaining command line arguments to that script.
+
 
 ## See results on tensorboard
-Tensorboard results take some time to fully load, even if graphic interface is already loaded, resulting in semingly incomplete graphs. Refreshing will update results as they load on the background.
-```shell
-cd SAN
+Tensorboard results take some time to fully load, even if graphic interface is already loaded, resulting in semingly incomplete graphs. Refreshing will update results as they load on the background. Having more than one events file in the same folder may cause tensorboard to incorrectly load data.
+```bash
+cd Hybrid
 tensorboard --logdir exp
 ```
 
