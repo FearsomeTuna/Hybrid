@@ -1,13 +1,12 @@
 DATA:
   data_root: dataset/miniQuickDraw
-  dataset_init: preprocessed_paths
+  dataset_init: txt_mappings
   data_name: mini_quickdraw
   classes: 300
   mean: [0.1307]
   std: [0.3081]
 
 TRAIN:
-  arch: hybrid
   layer_types: [res, res, res, san]
   sa_type: 1
   widths: [256, 512, 1024, 2048]
@@ -19,7 +18,7 @@ TRAIN:
   batch_size: 64
   batch_size_val: 32
   base_lr: 0.1
-  epochs: 40
+  epochs: 50
   start_epoch: 0
   step_epochs: [30, 60, 90]
   label_smoothing: 0.1
@@ -33,6 +32,7 @@ TRAIN:
   save_path: exp/mini_quickdraw/hybrid_patch_3-1/model
   weight:
   resume:
+  time_breakdown: True
   evaluate: True
 Distributed:
   dist_url: tcp://127.0.0.1:6789

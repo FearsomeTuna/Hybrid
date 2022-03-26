@@ -1,0 +1,77 @@
+# Most configs are the same for normal and SBIR training.
+
+# Only allows txt_mappings for dataset_init
+# Uses separate info for sketch dataset and photo dataset, and train and test:
+# Inside sketch_root and image_root, expected files are train.txt and mapping.txt.
+# Test data is for validating while training. Here we suppose that this val data is
+#   taken from the sketch and photo validation sets. For sketch set, a reduced subset
+#   is recommeded to avoid slow validation each epoch.
+# Inside test_sketch_root, expected files are val_queries.txt and mapping.txt.
+# Inside test_image_root, expected files are val.txt and mapping.txt.
+DATA:
+  sketch_root: dataset/Sketch_EITZ
+  image_root: dataset/flickr25k/photos
+  test_sketch_root: dataset/flickr15k/sketches
+  test_image_root: dataset/flickr15k/photos
+  dataset_init: txt_mappings
+  data_name: flickr
+  classes: 250
+  sketch_mean: [0.485, 0.456, 0.406]
+  sketch_std: [0.229, 0.224, 0.225]
+  image_mean: [0.485, 0.456, 0.406]
+  image_std: [0.229, 0.224, 0.225]
+
+TRAIN:
+  layer_types: [res, res, san, san]
+  sa_type: 1
+  widths: [256, 512, 1024, 2048]
+  layers: [1, 1, 2, 1]
+  added_nl_blocks: [0, 1, 2, 0]
+  # share_layers: amount of block stages that are to share weights
+  share_layers: 2
+  ignore_label: 2000
+  train_gpu: [0, 1]
+  workers: 8
+  batch_size: 128
+  batch_size_val: 200
+  base_lr: 0.1
+  # contras_epochs: contrastive phase duration
+  contras_epochs: 35
+  # triplet_epochs: triplet phase duration
+  triplet_epochs: 10
+  # margin: margin for contrastive and triplet loss function.
+  margin: 0.7
+  start_epoch: 0
+  label_smoothing: 0.1
+  scheduler: cosine
+  momentum: 0.9
+  weight_decay: 0.0001
+  manual_seed:
+  print_freq: 10
+  save_freq: 1
+  save_path: exp/flickr/hybrid_patch_2-2_nl/model
+  # sketch_weight: path to weights to be loaded into unshared sketch branch.
+  sketch_weight: exp/sketch_eitz/hybrid_patch_2-2_nl_imgnet_weights/model/model_best.pth
+  # image_weights: path to weights to be loaded into unshared photo branch.
+  image_weight: exp/flickr25k_photos/hybrid_patch_2-2_nl_imgnet_weights/model/model_best.pth
+  # weight: path to weights to be loaded from full double-branch instance. If used, will overwrite sketch_weight and image_weight.
+  weight:
+  # path to checkpoint. If used, overwrites sketch_weight, image_weight and weight config parameters.
+  resume:
+  time_breakdown: True
+  evaluate: True
+Distributed:
+  dist_url: tcp://127.0.0.1:6789
+  dist_backend: 'nccl'
+  multiprocessing_distributed: True
+  world_size: 1
+  rank: 0
+
+TEST:
+  # test_print_freq: print frequency for testing process
+  test_print_freq: 10
+  use_val_set: True
+  test_gpu: [0]
+  test_workers: 2
+  batch_size_test: 200
+  model_path: exp/flickr/hybrid_patch_2-2_nl/model/model_best.pth

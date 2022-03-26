@@ -1,23 +1,24 @@
 DATA:
   data_root: dataset/miniQuickDraw
-  dataset_init: preprocessed_paths
+  dataset_init: txt_mappings
   data_name: mini_quickdraw
   classes: 300
   mean: [0.1307]
   std: [0.3081]
 
 TRAIN:
-  arch: san
+  layer_types: [san, san, san, san, san]
   sa_type: 0
+  widths: [64, 256, 512, 1024, 2048]
   layers: [2, 1, 2, 4, 1]
-  kernels: [3, 7, 7, 7, 7]
+  added_nl_blocks: [0, 0, 0, 0, 0]
   ignore_label: 2000
   train_gpu: [0, 1]
   workers: 2
   batch_size: 64
   batch_size_val: 32
   base_lr: 0.1
-  epochs: 40
+  epochs: 50
   start_epoch: 0
   step_epochs: [30, 60, 90]
   label_smoothing: 0.1
@@ -31,6 +32,7 @@ TRAIN:
   save_path: exp/mini_quickdraw/san10_pairwise/model
   weight:
   resume:
+  time_breakdown: True
   evaluate: True
 Distributed:
   dist_url: tcp://127.0.0.1:6789

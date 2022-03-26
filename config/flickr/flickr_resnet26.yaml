@@ -1,0 +1,56 @@
+DATA:
+  sketch_root: dataset/Sketch_EITZ
+  image_root: dataset/flickr25k/photos
+  test_sketch_root: dataset/flickr15k/sketches
+  test_image_root: dataset/flickr15k/photos
+  dataset_init: txt_mappings
+  data_name: flickr
+  classes: 250
+  sketch_mean: [0.485, 0.456, 0.406]
+  sketch_std: [0.229, 0.224, 0.225]
+  image_mean: [0.485, 0.456, 0.406]
+  image_std: [0.229, 0.224, 0.225]
+
+TRAIN:
+  layer_types: [res, res, res, res]
+  widths: [256, 512, 1024, 2048]
+  layers: [1, 2, 4, 1]
+  added_nl_blocks: [0, 0, 0, 0]
+  share_layers: 2
+  ignore_label: 2000
+  train_gpu: [0, 1]
+  workers: 8
+  batch_size: 128
+  batch_size_val: 200
+  base_lr: 0.1
+  contras_epochs: 35
+  triplet_epochs: 10
+  margin: 0.7
+  start_epoch: 0
+  label_smoothing: 0.1
+  scheduler: cosine
+  momentum: 0.9
+  weight_decay: 0.0001
+  manual_seed:
+  print_freq: 10
+  save_freq: 1
+  save_path: exp/flickr/resnet26/model
+  sketch_weight: exp/sketch_eitz/resnet26_imgnet_weights/model/model_best.pth
+  image_weight: exp/flickr25k_photos/resnet26_imgnet_weights/model/model_best.pth
+  weight:
+  resume:
+  time_breakdown: True
+  evaluate: True
+Distributed:
+  dist_url: tcp://127.0.0.1:6789
+  dist_backend: 'nccl'
+  multiprocessing_distributed: True
+  world_size: 1
+  rank: 0
+
+TEST:
+  test_print_freq: 10
+  test_gpu: [0]
+  test_workers: 2
+  batch_size_test: 200
+  model_path: exp/flickr/resnet26/model/model_best.pth

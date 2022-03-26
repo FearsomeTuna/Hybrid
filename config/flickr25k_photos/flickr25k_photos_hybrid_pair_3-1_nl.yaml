@@ -1,17 +1,17 @@
 DATA:
-  data_root: dataset/Sketch_EITZ
+  data_root: dataset/flickr25k/photos
   dataset_init: txt_mappings
-  data_name: sketch_eitz
+  data_name: flickr25k_photos
   classes: 250
-  mean: [0.1307]
-  std: [0.3081]
+  mean: [0.485, 0.456, 0.406]
+  std: [0.229, 0.224, 0.225]
 
 TRAIN:
   layer_types: [res, res, res, san]
   sa_type: 0
   widths: [256, 512, 1024, 2048]
-  layers: [1, 2, 4, 1]
-  added_nl_blocks: [0, 0, 0, 0]
+  layers: [1, 1, 2, 1]
+  added_nl_blocks: [0, 1, 2, 0]
   ignore_label: 2000
   train_gpu: [0, 1]
   workers: 2
@@ -29,7 +29,7 @@ TRAIN:
   manual_seed:
   print_freq: 10
   save_freq: 1
-  save_path: exp/sketch_eitz/hybrid_pair_3-1/model
+  save_path: exp/flickr25k_photos/hybrid_pair_3-1_nl/model
   weight:
   resume:
   time_breakdown: True
@@ -46,4 +46,4 @@ TEST:
   test_gpu: [0]
   test_workers: 2
   batch_size_test: 100
-  model_path: exp/sketch_eitz/hybrid_pair_3-1/model/model_best.pth
+  model_path: exp/flickr25k_photos/hybrid_pair_3-1_nl/model/model_best.pth

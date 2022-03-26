@@ -1,41 +1,36 @@
 DATA:
   # data_root: root folder of dataset (within SAN folder)
-  data_root: dataset/ILSVRC2012
+  data_root: dataset/imagenet
   # dataset_init: defines the type of source data to initialize dataset:
   # - image_folder: initializes using torchvision.datasets.ImageFolder. Expects folders 'train', 'val', and possibly 'test'
-  # - preprocessed_paths: initialized from custom object file (see torch.save) with images paths and classes. See util.dataset.PathsFileDataset. 
-  # Expects files named 'train_init.pt', 'val_init.pt' and possibly 'test_init.pt'.
+  # - txt_mappings: initializes from txt mappings that include image path and class index on each line.
+  #                 Expects train.txt, val.txt and mapping.txt files.
   # Transforms for train set (random augmentations) will be performed at runtime.
   # Transforms performed on val set are resize to 256x256 followed by center crop (224x224).
-  dataset_init: image_folder
+  dataset_init: txt_mappings
   # data_name: seemingly unused
   data_name: imagenet
   # classes: number of classes
   classes: 1000
-  # mean: dataset mean for each input channel, defaults to imagenet values if not defined.
+  # mean: dataset mean for each input channel.
   mean: [0.485, 0.456, 0.406]
-  # std: dataset standard deviation for each input channel, defaults to imagenet values if not defined.
+  # std: dataset standard deviation for each input channel.
   std: [0.229, 0.224, 0.225]
 
 
 TRAIN:
-  # arch: architecture, either 'san', 'resnet', 'hybrid' or 'nl'.
-  # Length of 'layer' param must be equal to the length of 'kernels' if arch is san.
-  arch: san
-  # layer_types: only used with hybrid architecture. List indicating base block type for each stage. Each element must be either 'san', 'res', or 'nl'.
-  # Length must be equal to 'layers' config.
-  layer_types:
-  # sa_type: san architecture type. 0 is pairwise, 1 is patchwise. Only used if architecture is san or hybrid with san_stages > 0.
-  sa_type: 0
-  # widths: used only on hybrid arch. indicates the output channel dimension of each stage. Length must be equal to 'layers' config.
-  widths:
-  # added_nl_blocks: Used only if arch is hybrid. list indicating amount of non-local blocks to add to each stage. Each stage must have equal or less non-local
-  # blocks than main type of block. Length must be equal to 'layers' config.
-  added_nl_blocks:
   # layers: number of blocks used in each stage of model.
   layers: [2, 1, 2, 4, 1]
-  # kernels: size of kernels. ie 3x3, 7x7, etc. Used in san arch. Length must be equal to 'layers' config.
-  kernels: [3, 7, 7, 7, 7]
+  # layer_types: List indicating base block type for each stage. Each element must be either 'san', 'res', or 'nl'.
+  # Length must be equal to 'layers' config.
+  layer_types: [san, san, san, san, san]
+  # sa_type: san architecture type. 0 is pairwise, 1 is patchwise. Only used if 'layer_types' includes at least one san block stage.
+  sa_type: 0
+  # widths: used only on hybrid arch. indicates the output channel dimension of each stage. Length must be equal to 'layers' config.
+  widths: [64, 256, 512, 1024, 2048]
+  # added_nl_blocks: list indicating amount of non-local blocks to add to each stage. Each stage must have equal or less non-local
+  # blocks than main type of block. List length must be equal to 'layers' config.
+  added_nl_blocks: [0, 0, 0, 0, 0]
   # ignore_label: allows a class index to be ignored
   ignore_label: 2000
   # train_gpu: list of gpus to be used, requires correct distributed configurations (see Distributed section below) to have effect.
@@ -91,14 +86,42 @@ TRAIN:
   weight:
   # resume: path to latest checkpoint (default: none)
   resume:
+  # time_breakdown: if true, will breakdown time info into:
+  # - time: total iteration time
+  # - Data: time to load data from dataloader/dataset object (maybe affected by num of workers)
+  # - Transfer: transfer time from cpu to gpu
+  # - Batch: forward and backward pass
+  # - Metric: time spent calculating metrics
+  # This will sync execution of some CUDA kernels with torch.cuda.syncronize.
+  # Note that this forced syncronization may slow down training.
+  # Note that execution time depends on harware and current active processes, and
+  # may still not be precise due to these and other syncing proceses, like multi gpu one, which may 'hide' or overlap one another.
+  # These measurement are made from the main gpu process.
+  # If false, only Time and Data times are recorded.
+  time_breakdown: False
   # evaluate: unused.
   evaluate: True  
-# Distributed: Configs for distributed execution. Won't have effect if multiprocessing_distributed is False, and worl_size <=1.
+# Distributed: Configs for distributed execution. See pytorch's DistributedDataParallel documentation.
+# To have any effect these configurations require the following:
+# - length of 'train_gpu' config list to be > 1.
+# - either 'multiprocessing_distributed' config to be true, or worl_size > 1.
+# These configs allow training taking place in potentially several nodes (ie. individual machines, servers), each with same amount of GPUs.
 Distributed:
+  # dist_url: a URL string which indicates where/how to discover peers.
+  # If multiprocessing_distributed is True, will be overriden with 'tcp://127.0.0.1:{free_port}'
+  # where {free_port} is a free port on the system.
   dist_url: tcp://127.0.0.1:6789
+  # dist_backend: distributed backend to use, only tested with nccl
   dist_backend: 'nccl'
   multiprocessing_distributed: True
+  # world_size: Number of distributed nodes. If -1, will be taken from environment variable 'WORLD_SIZE'
+  # note: within scripts, args.world_size will be reassigned to be the total amount of gpus in distributed
+  # environment.
   world_size: 1
+  # rank: current node assigned index. If -1 and multiprocessing_distributed==True, and dist_url=="env://",
+  # rank will be overriden from environment variable 'RANK'.
+  # note: within scripts, args.rank will be reassigned to be the current process index, where each gpu across all
+  # nodes will have a different process index within the group.
   rank: 0
 
 TEST:

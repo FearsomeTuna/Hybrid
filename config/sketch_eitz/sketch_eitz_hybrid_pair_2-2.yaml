@@ -1,13 +1,12 @@
 DATA:
   data_root: dataset/Sketch_EITZ
-  dataset_init: preprocessed_paths
+  dataset_init: txt_mappings
   data_name: sketch_eitz
   classes: 250
   mean: [0.1307]
   std: [0.3081]
 
 TRAIN:
-  arch: hybrid
   layer_types: [res, res, san, san]
   sa_type: 0
   widths: [256, 512, 1024, 2048]
@@ -33,6 +32,7 @@ TRAIN:
   save_path: exp/sketch_eitz/hybrid_pair_2-2/model
   weight:
   resume:
+  time_breakdown: True
   evaluate: True
 Distributed:
   dist_url: tcp://127.0.0.1:6789

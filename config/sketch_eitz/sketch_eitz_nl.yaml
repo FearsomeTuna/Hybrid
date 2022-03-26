@@ -1,14 +1,16 @@
 DATA:
   data_root: dataset/Sketch_EITZ
-  dataset_init: preprocessed_paths
+  dataset_init: txt_mappings
   data_name: sketch_eitz
   classes: 250
   mean: [0.1307]
   std: [0.3081]
 
 TRAIN:
-  arch: nl
+  layer_types: [nl, nl, nl, nl]
+  widths: [256, 512, 1024, 2048]
   layers: [3, 2, 4, 1]
+  added_nl_blocks: [0, 0, 0, 0]
   ignore_label: 2000
   train_gpu: [0, 1]
   workers: 2
@@ -29,6 +31,7 @@ TRAIN:
   save_path: exp/sketch_eitz/nl/model
   weight:
   resume:
+  time_breakdown: True
   evaluate: True
 Distributed:
   dist_url: tcp://127.0.0.1:6789
