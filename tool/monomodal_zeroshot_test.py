@@ -21,15 +21,11 @@ import torchvision.transforms as transforms
 import torch.multiprocessing as mp
 import torch.distributed as dist
 
-
-from model.san import san
 from model.hybrid import MixedModel
-from model.resnet import resnet
-from model.nl import PureNonLocal2D
 
 from util import config
-from util.util import AverageMeter, combination_cosine_distance
-from util.dataset import PathsFileDataset
+from util.util import AverageMeter, combination_cosine_similarity
+from util.dataset import TxtFileDataset
 
 from torchmetrics import RetrievalMAP, RetrievalMRR, RetrievalPrecision
 
@@ -69,14 +65,7 @@ def main():
     logger.info("Classes: {}".format(args.classes))
     os.environ["CUDA_VISIBLE_DEVICES"] = ','.join(str(x) for x in args.test_gpu)
 
-    if (args.arch == 'resnet'): # resnet
-        model = resnet(args.layers, args.classes)
-    elif args.arch == 'san': # SAN
-        model = san(args.sa_type, args.layers, args.kernels, args.classes)
-    elif args.arch == 'nl':
-        model = PureNonLocal2D(args.layers, args.classes, 'dot')
-    elif args.arch == 'hybrid':
-        model = MixedModel(args.layers, args.layer_types, args.widths, args.classes, args.layer_types[0], args.sa_type if 'san' in args.layer_types else None, args.added_nl_blocks)
+    model = MixedModel(args.layers, args.layer_types, args.widths, args.classes, args.layer_types[0], args.sa_type if 'san' in args.layer_types else None, args.added_nl_blocks)
     
     logger.info(model)
     model = torch.nn.DataParallel(model.cuda())
@@ -89,32 +78,25 @@ def main():
     else:
         raise RuntimeError("=> no checkpoint found at '{}'".format(args.model_path))
 
-    mean, std = [0.485, 0.456, 0.406], [0.229, 0.224, 0.225]
-    if args.mean: mean = args.mean
-    if args.std: std = args.std
+    test_transform = transforms.Compose([transforms.Resize(256), transforms.CenterCrop(224), transforms.ToTensor(), transforms.Normalize(args.mean, args.std)])
 
-    test_transform = transforms.Compose([transforms.Resize(256), transforms.CenterCrop(224), transforms.ToTensor(), transforms.Normalize(mean, std)])
-
-    test_name = 'zeroshot_test'
+    test_name = 'zeroshot_catalog'
     query_name = 'zeroshot_queries'
-    if args.dataset_init == 'preprocessed_paths':
-        test_set = PathsFileDataset(args.data_root, test_name + '_init.pt', transform=test_transform)
-        query_set = PathsFileDataset(args.data_root, query_name + '_init.pt', transform=test_transform)
-    elif args.dataset_init == 'image_folder':
-        test_set = torchvision.datasets.ImageFolder(os.path.join(args.data_root, test_name), test_transform)
-        query_set = torchvision.datasets.ImageFolder(os.path.join(args.data_root, query_name), test_transform)
+    if args.dataset_init == 'txt_mappings':
+        test_set = TxtFileDataset(args.data_root, test_name+'.txt', 'mapping_zeroshot.txt', '\t', True, transform=test_transform)
+        query_set = TxtFileDataset(args.data_root, query_name+'.txt', 'mapping_zeroshot.txt', '\t', True, transform=test_transform, return_index=True)
     else:
         raise ValueError("Invalid value for dataset_init config argument.")
     
     test_loader = torch.utils.data.DataLoader(test_set, batch_size=args.batch_size_test, shuffle=False, num_workers=args.test_workers, pin_memory=True)
     query_loader = torch.utils.data.DataLoader(query_set, batch_size=args.batch_size_test, shuffle=False, num_workers=args.test_workers, pin_memory=True)
 
-    logger.info('Using cosine similarity as score function.')
-    validate(test_loader, query_loader, model, combination_cosine_distance)
+    validate(test_loader, query_loader, model, combination_cosine_similarity)
 
+@torch.no_grad()
 def validate(test_loader, query_loader, model, score_fun):
     logger.info('>>>>>>>>>>>>>>>> Start Evaluation >>>>>>>>>>>>>>>>')
-    batch_time = AverageMeter()
+    iter_time = AverageMeter()
     data_time = AverageMeter()
     mAP = RetrievalMAP(compute_on_step=False)
     mRR = RetrievalMRR(compute_on_step=False)
@@ -122,41 +104,41 @@ def validate(test_loader, query_loader, model, score_fun):
 
     model.eval()
     end = time.time()
-    
+
+    # To process each image only once, we store query info in memory (it's enough with just queries,
+    # and they are relatively few compared to catalog, so less memory required)
+    processed_queries = []
+    for (query_input, query_target, query_index) in query_loader:
+        query_input = query_input.cuda(non_blocking=True)
+        query_target = query_target.cuda(non_blocking=True)
+        query_index = query_index.cuda(non_blocking=True)
+        query_embeding = model(query_input, getFeatVec=True)
+        processed_queries.append((query_embeding, query_target, query_index))
+
     for i, (test_input, test_target) in enumerate(test_loader):
         data_time.update(time.time() - end)
         test_input = test_input.cuda(non_blocking=True)
         test_target = test_target.cuda(non_blocking=True)
-        with torch.no_grad():
-            test_embeding = model(test_input, getFeatVec=True)
-        start_query_index = 0 
-        for j, (query_input, query_target) in enumerate(query_loader):
-            query_input = query_input.cuda(non_blocking=True)
-            query_target = query_target.cuda(non_blocking=True)                     
-            with torch.no_grad():
-                query_embeding = model(query_input, getFeatVec=True)                
+        test_embeding = model(test_input, getFeatVec=True)
+
+        for query_embeding, query_target, query_index in processed_queries:   
             scores = score_fun(test_embeding, query_embeding)
-
-            query_batchsize = list(query_embeding.size())[0]
-            end_query_index = start_query_index + query_batchsize
-            indices = torch.arange(start_query_index, end_query_index)
-            start_query_index = end_query_index
-            indices = torch.broadcast_to(indices.unsqueeze(0), scores.size())
-
-            target = test_target.unsqueeze(1) == query_target.unsqueeze(0)            
+            indices = torch.broadcast_to(query_index.unsqueeze(0), scores.size())
+            target = test_target.unsqueeze(1) == query_target.unsqueeze(0)
+            
             mAP(scores, target, indices)
             mRR(scores, target, indices)
             pAt10(scores, target, indices)
 
-        batch_time.update(time.time() - end)
+        iter_time.update(time.time() - end)
         end = time.time()
 
         if (i + 1) % args.print_freq == 0:
             logger.info('Test: [{}/{}] '
                         'Data {data_time.val:.3f} ({data_time.avg:.3f}) '
-                        'Batch {batch_time.val:.3f} ({batch_time.avg:.3f})'.format(i + 1, len(test_loader),
+                        'Iter {iter_time.val:.3f} ({iter_time.avg:.3f})'.format(i + 1, len(test_loader),
                                                                         data_time=data_time,
-                                                                        batch_time=batch_time))
+                                                                        iter_time=iter_time))
     map_value = mAP.compute()
     mrr_value = mRR.compute()
     pAt10_value = pAt10.compute()
