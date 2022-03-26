@@ -1,5 +1,5 @@
 # About this work
-This repo forks the original [paper](https://hszhao.github.io/papers/cvpr20_san.pdf) code and modifies it to allow training of hybrid convolution-attention architectures on classification and sketch based image retrieval (SBIR) tasks.
+This repo forks the original [paper](https://hszhao.github.io/papers/cvpr20_san.pdf) code and modifies it to allow training of a variety of arquitectures on classification and sketch based image retrieval (SBIR) tasks, including pure convolutional, pure attentional and hybrid convolution-attention architectures.
 
 ## Our hardware and software setup
 
