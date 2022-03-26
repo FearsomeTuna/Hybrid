@@ -249,13 +249,13 @@ def aggregation_flops_counter_hook(module, input, output):
     module.__flops__ += int(np.prod(output.shape) * np.prod(module.kernel_size))
 
 def non_local_flops_counter_hook(module, input, output):
-    if module.dimension != 2 or module.mode != 'dot':
-        raise NotImplemented("Only 2D non-local blocks with dot mode supported.")
-    # only operations not acounted on other nn.Module types are dots products and aggregation.
+    if module.mode != 'dot':
+        raise NotImplemented("Only 2D non-local blocks with dot mode currently supported.")
+    # only operations not accounted for on other nn.Module types are dot products and aggregation.
     output = output[0] # get any tensor from output batch, with dimensions CxHxW
     height = output.shape[1]
     width = output.shape[2]
-    sub_sample_factor = 4 if module.sub_sample else 1
+    sub_sample_factor = 4 if module.sub_sample else 1 # pooling with (2,2) kernel leads to (H/2)*(W/2)= HW/4, hence factor 4
     dot_product_count = (height*width)**2 / sub_sample_factor * module.inter_channels # HW * (HW/4) * inter_channels when module.sub_sample is True
     aggregation_count = (height*width)**2 / sub_sample_factor # HW * (HW/4) when module.sub_sample is True
     module.__flops__ += dot_product_count + aggregation_count
@@ -396,7 +396,7 @@ MODULES_MAPPING = {
     sa.modules.Subtraction2: subtraction2_flops_counter_hook,
     sa.modules.Aggregation: aggregation_flops_counter_hook,
     # NL
-    nl.NLBlockND: non_local_flops_counter_hook,
+    nl.NLBlock: non_local_flops_counter_hook,
 }
 
 
