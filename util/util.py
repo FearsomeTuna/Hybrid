@@ -9,7 +9,6 @@ from torch.nn.modules.batchnorm import _BatchNorm
 import torch.nn.init as initer
 import torch.nn.functional as F
 
-
 class AverageMeter(object):
     """Computes and stores the average and current value"""
     def __init__(self):
@@ -204,11 +203,11 @@ def init_weights(model):
                 nn.init.constant_(m.weight, 1)
                 nn.init.constant_(m.bias, 0)
 
-def combination_cosine_distance(mat1, mat2):
-    """Calculates cosine similarity between every vector of mat1 and every vector of mat2.
+def combination_cosine_similarity(mat1, mat2):
+    """Calculates cosine similarity between every normalized vector of mat1 and every normalized vector of mat2.
 
     If vectors are of length f, then input dimensions must be (N, f) and (M, f), where N and M > 0, and result will be a tensor of dimensions (N, M).
-    If result = bipartite_cosine_distance(mat1, mat2), then result[i,j] is roughly equivalent to the value held by tensor
+    If result=combination_cosine_similarity(mat1, mat2), then result[i,j] is roughly equivalent to the value held by tensor
     torch.nn.functional.cosine_similarity(mat1[i].unsqueeze(0), mat2[j].unsqueeze(0)) for every position i, j.
 
     Args:
@@ -221,3 +220,97 @@ def combination_cosine_distance(mat1, mat2):
     mat1 = F.normalize(mat1)
     mat2 = F.normalize(mat2)
     return torch.mm(mat1, torch.transpose(mat2, 0, 1))
+
+# from https://github.com/delijati/pytorch-siamese/blob/master/contrastive.py
+class ContrastiveLoss(torch.nn.Module):
+    """
+    Contrastive loss function.
+    
+    This module does not normalize input vectors. If so desired, vectors must be normalized before hand.
+
+    Shape:
+        - x0: (N, f) where N is the batch size and f is the number of features for each vector (ie the length of each feature vector)
+        - x1: (N, f), same shape as x0.
+        - y: (N). This is the the target similarity, where y[i] should be 1 if embeddings x0[i] and x1[i] are expected to be similar and 0 if expected dissimilar. 
+    """
+
+    def __init__(self, margin = 1.0):
+        super(ContrastiveLoss, self).__init__()
+        self.margin = margin
+
+    def check_type_forward(self, in_types):
+        assert len(in_types) == 3
+
+        x0_type, x1_type, y_type = in_types
+        assert x0_type.size() == x1_type.shape
+        assert x1_type.size()[0] == y_type.shape[0]
+        assert x1_type.size()[0] > 0
+        assert x0_type.dim() == 2
+        assert x1_type.dim() == 2
+        assert y_type.dim() == 1
+
+    def forward(self, x0, x1, y):
+        self.check_type_forward((x0, x1, y))
+
+        # euclidian distance
+        dist = F.pairwise_distance(x0, x1)
+
+        mdist = self.margin - dist
+        mdist = torch.clamp(mdist, min=0.0)
+        loss = (y) * torch.pow(dist, 2) + (1 - y) * torch.pow(mdist, 2)
+
+        # weight positive and negative contributions the same
+        indices_dissimilar = (y==0).nonzero(as_tuple=True)
+        indices_similar = (y==1).nonzero(as_tuple=True)
+        loss_dissim = loss[indices_dissimilar]
+        loss_sim = loss[indices_similar]
+        loss_dissim = loss_dissim.mean()
+        loss_sim = loss_sim.mean()
+        loss = (loss_dissim + loss_sim) / 2.0
+        return loss
+
+
+class ContrastiveLossHardNegative(torch.nn.Module):
+    def __init__(self, margin = 1.0):
+        super(ContrastiveLossHardNegative, self).__init__()
+        self.margin = margin
+
+    def check_type_forward(self, in_types):
+        assert len(in_types) == 4
+
+        x0_type, x1_type, y0_type, y1_type = in_types
+        assert x0_type.size() == x1_type.shape
+        assert x1_type.size()[0] == y0_type.shape[0] == y1_type.shape[0]
+        assert x1_type.size()[0] > 0
+        assert x0_type.dim() == 2
+        assert x1_type.dim() == 2
+        assert y0_type.dim() == y1_type.dim() == 1
+
+    def forward(self, x0, x1, y0, y1):
+        self.check_type_forward((x0, x1, y0, y1))
+        similar = y0==y1
+
+        # separate positives and negatives, we're mining only negatives
+        x0_sim = x0[similar]
+        x1_sim = x1[similar]
+
+        # calculate positive pairs loss
+        dist = F.pairwise_distance(x0_sim, x1_sim)
+        pos_loss = torch.pow(dist, 2).mean()
+
+        # get all possible negative pairing distances
+        distances = torch.cdist(x0, x1)
+        dissimilar = y0.unsqueeze(1) != y1.unsqueeze(0)
+        distances = distances[dissimilar]
+
+        # get smallest negative pair distances (that maximize the loss)
+        distances, _ = distances.flatten().sort()
+        qty = min(x0.size(0)//2, distances.size(0)) # in unlikely case there's too few negative pairings
+        distances = distances[:qty]
+
+        # calculate hard negative loss
+        mdist = self.margin - distances
+        mdist = torch.clamp(mdist, min=0.0)
+        neg_loss = torch.pow(mdist, 2).mean()
+        loss = (pos_loss + neg_loss) / 2.0
+        return loss
